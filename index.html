@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미리보기 리스트</title>
+<style>
+    #preview-list {
+        list-style-type: none;
+        padding: 0;
+    }
+    .preview-item {
+        cursor: pointer;
+        margin: 5px;
+        padding: 5px;
+        border: 1px solid #ccc;
+    }
+</style>
+</head>
+<body>
+<h1>미리보기 리스트</h1>
+<ul id="preview-list">
+    <li class="preview-item" onclick="previewVideo('video1')">영상 1</li>
+    <li class="preview-item" onclick="previewVideo('video2')">영상 2</li>
+    <li class="preview-item" onclick="previewVideo('video3')">영상 3</li>
+</ul>
+
+<div id="video-container">
+    <!-- 동영상이 출력될 곳 -->
+</div>
+
+<script>
+    function previewVideo(videoId) {
+        const videoContainer = document.getElementById('video-container');
+        fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=YOUR_API_KEY&part=snippet`)
+            .then(response => response.json())
+            .then(data => {
+                const videoTitle = data.items[0].snippet.title;
+                videoContainer.innerHTML = `
+                    <h2>${videoTitle}</h2>
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+                `;
+            })
+            .catch(error => console.error(error));
+    }
+</script>
+</body>
+</html>
