@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>미리보기 리스트1</title>
+<title>미리보기 리스트</title>
 <style>
     #preview-list {
         list-style-type: none;
@@ -29,19 +29,30 @@
     <!-- 동영상이 출력될 곳 -->
 </div>
 
+<div>
+    <label for="video-id">동영상 ID 입력:</label>
+    <input type="text" id="video-id">
+    <button onclick="addVideo()">추가하기</button>
+</div>
+
 <script>
     function previewVideo(videoId) {
         const videoContainer = document.getElementById('video-container');
-        fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=YOUR_API_KEY&part=snippet`)
-            .then(response => response.json())
-            .then(data => {
-                const videoTitle = data.items[0].snippet.title;
-                videoContainer.innerHTML = `
-                    <h2>${videoTitle}</h2>
-                    <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
-                `;
-            })
-            .catch(error => console.error(error));
+        videoContainer.innerHTML = `
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+        `;
+    }
+
+    function addVideo() {
+        const videoId = document.getElementById('video-id').value;
+        if (videoId) {
+            const videoContainer = document.getElementById('video-container');
+            videoContainer.innerHTML = `
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+            `;
+        } else {
+            alert('동영상 ID를 입력해주세요');
+        }
     }
 </script>
 </body>
