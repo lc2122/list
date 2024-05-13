@@ -1,2 +1,49 @@
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>미리보기 리스트</title> <style> #preview-list { list-style-type: none; padding: 0; } .preview-item { cursor: pointer; margin: 5px; padding: 5px; border: 1px solid #ccc; } </style> </head> <body> <h1>미리보기 리스트</h1> <ul id="preview-list"> <li class="preview-item" onclick="previewVideo('UC__vBfE0gnFx_81_HzVTckA')">유튜브 채널(@id)의 최신 동영상</li> <li class="preview-item" onclick="previewVideo('video1')">영상 1</li> <li class="preview-item" onclick="previewVideo('video2')">영상 2</li> <li class="preview-item" onclick="previewVideo('video3')">영상 3</li> </ul> <div id="video-container"> <!-- 동영상이 출력될 곳 --> </div> <div> <label for="video-id">동영상 ID 입력:</label> <input type="text" id="video-id"> <button onclick="addVideo()">추가하기</button> </div> <script> function previewVideo(videoId) { const videoContainer = document.getElementById('video-container'); if(videoId === 'UC__vBfE0gnFx_81_HzVTckA'){ fetch('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=CHANNELUSERNAME&key=YOUR_API_KEY') .then(response => response.json()) .then(data => { const latestVideoId = data.items[0].contentDetails.relatedPlaylists.uploads; videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${latestVideoId}" frameborder="0" allowfullscreen></iframe> `; }) .catch(error => console.log(error)); } else { videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe> `; } } function addVideo() { const videoId = document.getElementById('video-id').value; if (videoId) { const videoContainer = document.getElementById('video-container'); videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe> `; } else { alert('동영상 ID를 입력해주세요'); } } </script> </body> </html>
+<!DOCTYPE html> 
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미리보기 리스트</title> 
+    
+<style>
+  #preview-list { list-style-type: none; padding: 0; }
+  .preview-item { cursor: pointer; margin: 5px; padding: 5px; border: 1px solid #ccc; } 
+</style> 
+  </head>
+  
+  <body> 
+    <h1>미리보기 리스트</h1> 
+    <ul id="preview-list">
+      <li class="preview-item" onclick="previewVideo('UC__vBfE0gnFx_81_HzVTckA')">유튜브 채널(@id)의 최신 동영상</li>
+      <li class="preview-item" onclick="previewVideo('video1')">영상 1</li>
+      <li class="preview-item" onclick="previewVideo('video2')">영상 2</li>
+      <li class="preview-item" onclick="previewVideo('video3')">영상 3</li> 
+    </ul> 
+    <div id="video-container"> <!-- 동영상이 출력될 곳 --> </div> 
+    <div> 
+      <label for="video-id">동영상 ID 입력:</label>
+      <input type="text" id="video-id"> <button onclick="addVideo()">추가하기</button> 
+    </div> 
+    
+    <script>
+      
+    function previewVideo(videoId) { 
+     const videoContainer = document.getElementById('video-container');
+    if(videoId === 'UC__vBfE0gnFx_81_HzVTckA'){ 
+      fetch('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=CHANNELUSERNAME&key=YOUR_API_KEY')
+        .then(response => response.json())
+        .then(data => { 
+    const latestVideoId = data.items[0].contentDetails.relatedPlaylists.uploads;
+          videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${latestVideoId}" frameborder="0" allowfullscreen></iframe> `; })
+        .catch(error => console.log(error)); }
+    else { videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe> `; } }
+    function addVideo() { 
+      const videoId = document.getElementById('video-id').value;
+      if (videoId) { 
+        const videoContainer = document.getElementById('video-container');
+        videoContainer.innerHTML = ` <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe> `; }
+      else { alert('동영상 ID를 입력해주세요'); } } 
+    </script> 
+  </body> 
+</html>
 위 코드에서 'UC__vBfE0gnFx_81_HzVTckA' 부분에는 실제 유튜브 채널의 ID를 넣어주시고, 'CHANNELUSERNAME'과 'YOUR_API_KEY'에는 본인의 유튜브 API 키와 해당 채널의 유저명을 넣어주시면 됩니다. 이렇게 수정하면 해당 유튜브 채널의 최신 동영상이 미리보기에 나타납니다.
