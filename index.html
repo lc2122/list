@@ -1,27 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>HLS.js 예제</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>Multiple m3u8 Video Playlist</title>
 </head>
 <body>
+    <button onclick="playVideo('m3u8_url_1')">Play Video 1</button>
+    <button onclick="playVideo('m3u8_url_2')">Play Video 2</button>
+    <button onclick="playVideo('m3u8_url_3')">Play Video 3</button>
+
     <video id="video" controls autoplay></video>
 
     <script>
         var video = document.getElementById('video');
-        if(Hls.isSupported()) {
-            var hls = new Hls();
-            hls.loadSource('https://spotvon-livescdn.spotvnow.co.kr/spotvon/spotvon_pc.smil/chunklist_b9192000.m3u8?Policy=eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vKmxpdmVzY2RuLnNwb3R2bm93LmNvLmtyLyoiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE2OTk3OTIyMDB9fX1dfQ__&Signature=qmbJUZJOTsQg42CrzaA4CZzFFIHXJWmKoT7MPKlmCRzFvid3swRuRg4TWpkSTZilP75sGmnZQzeN01TIRJ9R5skV0CvxW0hppMgMBr~m94DQ5Ek8bVmg1evpyPSirYGqtIqR8y6tRmhzEw24LO2n~~rbdSAVPZ-Oczf~dWLUKyt12klmegArjlZfG4SC5q5teQuR6fpFbD7LKDGDAbqIwmXA3FbV0vc~860b52Wni-eafVwmv60zxZuF4kCNNsTjKiXBD7zhTci2240GFMdYIK0nyUoLn4EgHYZv9NIz-y2VohdiidVsPvSSrea9AUpq-BVUGOnS~e3L3t2nOfCYEQ__&Key-Pair-Id=APKAI2M6I5EDDXED7H5Q');
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                video.play();
-            });
-        }
-        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = 'https://spotvon-livescdn.spotvnow.co.kr/spotvon/spotvon_pc.smil/chunklist_b9192000.m3u8?Policy=eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vKmxpdmVzY2RuLnNwb3R2bm93LmNvLmtyLyoiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE2OTk3OTIyMDB9fX1dfQ__&Signature=qmbJUZJOTsQg42CrzaA4CZzFFIHXJWmKoT7MPKlmCRzFvid3swRuRg4TWpkSTZilP75sGmnZQzeN01TIRJ9R5skV0CvxW0hppMgMBr~m94DQ5Ek8bVmg1evpyPSirYGqtIqR8y6tRmhzEw24LO2n~~rbdSAVPZ-Oczf~dWLUKyt12klmegArjlZfG4SC5q5teQuR6fpFbD7LKDGDAbqIwmXA3FbV0vc~860b52Wni-eafVwmv60zxZuF4kCNNsTjKiXBD7zhTci2240GFMdYIK0nyUoLn4EgHYZv9NIz-y2VohdiidVsPvSSrea9AUpq-BVUGOnS~e3L3t2nOfCYEQ__&Key-Pair-Id=APKAI2M6I5EDDXED7H5Q';
-            video.addEventListener('loadedmetadata', function() {
-                video.play();
-            });
+
+        function playVideo(url) {
+            if(Hls.isSupported()) {
+                var hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                });
+            }
         }
     </script>
 </body>
