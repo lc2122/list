@@ -1,33 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multiple m3u8 Video Playlist</title>
+<title>Multiple m3u8 Video Playlist</title>
 </head>
 <body>
-    <button onclick="playVideo('/spo00.m3u8')">Play Video 1</button>
-    <button onclick="playVideo('m3u8_url_2')">Play Video 2</button>
-    <button onclick="playVideo('m3u8_url_3')">Play Video 3</button>
+<button onclick="playVideo('spo00.m3u8')">Play Video 1</button>
 
-    <video id="video" controls autoplay></video>
+<video id="video" controls autoplay></video>
 
-    <script>
-        var video = document.getElementById('video');
+<script>
+    var video = document.getElementById('video');
 
-        function playVideo(url) {
-            if(Hls.isSupported()) {
-                var hls = new Hls();
-                hls.loadSource(url);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play();
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('loadedmetadata', function() {
-                    video.play();
-                });
-            }
+    function playVideo(url) {
+        if(Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play();
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.addEventListener('loadedmetadata', function() {
+                video.play();
+            });
         }
-    </script>
+    }
+</script>
 </body>
 </html>
