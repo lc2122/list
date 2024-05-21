@@ -1,30 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>M3U8 스트리밍 테스트</title>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <title>HLS.js Player</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        video {
+            width: 80%;
+            max-width: 800px;
+            border: 2px solid #333;
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>M3U8 스트리밍 테스트</h1>
     <video id="video" controls></video>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
-        var video = document.getElementById('video');
-        var videoSrc = 'http://116.36.44.80:8080/hls/kdj1779/index.m3u8';
+        const video = document.getElementById('video');
+        const videoSrc = 'http://116.36.44.80:8080/hls/kdj1779/index.m3u8';
 
         if (Hls.isSupported()) {
-            var hls = new Hls();
+            const hls = new Hls();
             hls.loadSource(videoSrc);
             hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 video.play();
             });
-        }
-        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = videoSrc;
-            video.addEventListener('loadedmetadata', function() {
+            video.addEventListener('loadedmetadata', () => {
                 video.play();
             });
+        } else {
+            alert('HLS not supported in this browser.');
         }
     </script>
 </body>
