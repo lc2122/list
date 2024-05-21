@@ -1,41 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>WebRTC Client</title>
+    <title>M3U8 스트리밍 테스트</title>
+    <meta charset="utf-8">
 </head>
 <body>
-  <video id="video" autoplay playsinline controls></video>
-  <script>
-    const video = document.getElementById('video');
-      
-    // WebSocket signaling
-    const signalingServer = new WebSocket('ws://localhost:8080');
-    signalingServer.onmessage = event => {
-      const data = JSON.parse(event.data);
-      console.log('Received message:', data);
-    };
+    <h1>M3U8 스트리밍 테스트</h1>
+    <video id="video" controls></video>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        var video = document.getElementById('video');
+        var videoSrc = 'http://116.36.44.80:8080/hls/kdj1779/index.m3u8';
 
-    // WebRTC Peer Connection
-    const configuration = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    };
-
-    const peerConnection = new RTCPeerConnection(configuration);
-
-    peerConnection.ontrack = event => {
-      video.srcObject = event.streams[0];
-    };
-
-    // Create an offer
-    peerConnection.createOffer()
-      .then(offer => peerConnection.setLocalDescription(offer))
-      .then(() => {
-        signalingServer.send(JSON.stringify({
-          type: 'offer',
-          offer: peerConnection.localDescription
-        }));
-      });
-  </script>
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play();
+            });
+        }
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+            video.addEventListener('loadedmetadata', function() {
+                video.play();
+            });
+        }
+    </script>
 </body>
 </html>
