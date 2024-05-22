@@ -10,13 +10,13 @@
     if (Hls.isSupported()) {
       var video = document.getElementById('video');
       var hls = new Hls();
-      hls.loadSource('https://220.120.85.14:8888/live/lc2122/stream.m3u8'); // HTTPS URL
+      hls.loadSource('https:///live/lc2122/stream.m3u8'); // HTTPS URL
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, function() {
         video.play();
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = 'https://220.120.85.14:8888/live/lc2122/stream.m3u8'; // HTTPS URL
+      video.src = '/live/lc2122/stream.m3u8'; // HTTPS URL
       video.play();
     }
   </script>
