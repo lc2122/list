@@ -24,7 +24,7 @@
     <button onclick="playVideo()">Play</button>
     <a href="https://gall.dcinside.com/mgallery/board/lists?id=liz" target="_blank" onclick="openInVideoPlayer(event)">리즈갤</a>
     <br>
-    is.gd/단축주소 뒤에 -를 넣고 입력시 나온 m3u8 주소 입력 ex)https://is.gd/lolcast -> https://is.gd/lolcast- 입력
+    is.gd/단축주소 뒤에 -를 넣고 입력 시 나온 m3u8 주소 입력 ex)https://is.gd/lolcast -> https://is.gd/lolcast- 입력
     <div id="video-container"></div>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
@@ -45,8 +45,8 @@
 
             // Check if the URL is an HTTP .m3u8 file
             if (videoUrl.startsWith('http://') && videoUrl.includes('.m3u8')) {
-                // Use the CORS proxy to avoid the CORS issue
-                videoUrl = 'https://cors-anywhere.herokuapp.com/' + videoUrl;
+                // Use a CORS proxy to avoid the CORS issue
+                videoUrl = 'https://corsproxy.io/?' + encodeURIComponent(videoUrl);
             }
 
             if (videoUrl.includes('.m3u8')) {
