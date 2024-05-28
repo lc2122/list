@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>HTML5 Video Player</title>
+    <title>Video.js Player</title>
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet">
     <style>
         body {
             display: flex;
@@ -11,16 +12,18 @@
             height: 100vh;
             background-color: #f4f4f4;
         }
-        video {
+        .video-js {
             width: 80%;
             height: auto;
         }
     </style>
 </head>
 <body>
-    <video controls autoplay>
+    <video id="my-video" class="video-js vjs-default-skin" controls preload="auto" autoplay data-setup='{}'>
         <source src="http://220.120.85.14:8888/live/lc2122/" type="video/mp4">
         Your browser does not support the video tag.
     </video>
+
+    <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
 </body>
 </html>
