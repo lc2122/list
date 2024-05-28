@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Embedded Video</title>
+    <title>HTML5 Video Player</title>
     <style>
         body {
             display: flex;
@@ -11,13 +11,16 @@
             height: 100vh;
             background-color: #f4f4f4;
         }
-        iframe {
+        video {
             width: 80%;
-            height: 80%;
+            height: auto;
         }
     </style>
 </head>
 <body>
-    <iframe src="http://220.120.85.14:8888/live/lc2122/" frameborder="0" allowfullscreen></iframe>
+    <video controls autoplay>
+        <source src="http://220.120.85.14:8888/live/lc2122/" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
 </body>
 </html>
