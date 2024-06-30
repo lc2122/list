@@ -1,12 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>m3u8 미리보기 (HLS.js)</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U8 Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        .video-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .video-wrapper {
+            width: 320px;
+            height: 180px;
+            cursor: pointer;
+        }
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+        }
+    </style>
 </head>
 <body>
-  <div class="video-container">
-  </div>
+    <div class="video-container" id="videoContainer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script src="script.js"></script> </body> </html>
+    <script>
+        const streams = [
+            'https://api.sooplive.com/media/live/soopbaseball1/master.m3u8',
+            'https://api.sooplive.com/media/live/soopbaseball2/master.m3u8',
+            'https://api.sooplive.com/media/live/soopbaseball3/master.m3u8',
+            'https://api.sooplive.com/media/live/soopbaseball4/master.m3u8',
+            'https://api.sooplive.com/media/live/soopbaseball5/master.m3u8',
+            'https://api.sooplive.com/media/live/soopbaseball6/master.m3u8'
+        ];
+
+        function createVideoElement(stream, index) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'video-wrapper';
+            wrapper.innerHTML = `<video id="video${index}" controls></video>`;
+            
+            wrapper.addEventListener('click', () => toggleFullscreen(wrapper));
+            
+            const video = wrapper.querySelector('video');
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(stream);
+                hls.attachMedia(video);
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = stream;
+            }
+
+            return wrapper;
+        }
+
+        function toggleFullscreen(element) {
+            if (!document.fullscreenElement) {
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                }
+                element.classList.add('fullscreen');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                element.classList.remove('fullscreen');
+            }
+        }
+
+        const container = document.getElementById('videoContainer');
+        streams.forEach((stream, index) => {
+            const videoElement = createVideoElement(stream, index);
+            container.appendChild(videoElement);
+        });
+    </script>
+</body>
+</html>
