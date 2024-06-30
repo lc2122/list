@@ -2,93 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M3U8 Player</title>
+    <title>M3U8 Player Grid</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        .video-container {
-            display: flex;
-            flex-wrap: wrap;
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 10px;
+            padding: 10px;
         }
         .video-wrapper {
-            width: 320px;
-            height: 180px;
+            position: relative;
             cursor: pointer;
+        }
+        .video-player {
+            width: 100%;
+            height: 100%;
         }
         .fullscreen {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 9999;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            background-color: black;
         }
     </style>
 </head>
 <body>
-    <div class="video-container" id="videoContainer"></div>
 
-    <script>
-        const streams = [
+<div class="grid-container">
+    <div class="video-wrapper" id="player1">
+        <video class="video-player" controls></video>
+    </div>
+    <div class="video-wrapper" id="player2">
+        <video class="video-player" controls></video>
+    </div>
+    <div class="video-wrapper" id="player3">
+        <video class="video-player" controls></video>
+    </div>
+    <div class="video-wrapper" id="player4">
+        <video class="video-player" controls></video>
+    </div>
+    <div class="video-wrapper" id="player5">
+        <video class="video-player" controls></video>
+    </div>
+</div>
+
+<script>
+    const m3u8Urls = [
             'https://api.sooplive.com/media/live/soopbaseball1/master.m3u8',
             'https://api.sooplive.com/media/live/soopbaseball2/master.m3u8',
             'https://api.sooplive.com/media/live/soopbaseball3/master.m3u8',
             'https://api.sooplive.com/media/live/soopbaseball4/master.m3u8',
             'https://api.sooplive.com/media/live/soopbaseball5/master.m3u8',
             'https://api.sooplive.com/media/live/soopbaseball6/master.m3u8'
-        ];
+    ];
 
-        function createVideoElement(stream, index) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'video-wrapper';
-            wrapper.innerHTML = `<video id="video${index}" controls></video>`;
-            
-            wrapper.addEventListener('click', () => toggleFullscreen(wrapper));
-            
-            const video = wrapper.querySelector('video');
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(stream);
-                hls.attachMedia(video);
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = stream;
-            }
+    const players = document.querySelectorAll('.video-wrapper');
 
-            return wrapper;
-        }
-
-        function toggleFullscreen(element) {
-            if (!document.fullscreenElement) {
-                if (element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if (element.mozRequestFullScreen) {
-                    element.mozRequestFullScreen();
-                } else if (element.webkitRequestFullscreen) {
-                    element.webkitRequestFullscreen();
-                } else if (element.msRequestFullscreen) {
-                    element.msRequestFullscreen();
-                }
-                element.classList.add('fullscreen');
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                element.classList.remove('fullscreen');
-            }
-        }
-
-        const container = document.getElementById('videoContainer');
-        streams.forEach((stream, index) => {
-            const videoElement = createVideoElement(stream, index);
-            container.appendChild(videoElement);
+    players.forEach((wrapper, index) => {
+        const video = wrapper.querySelector('video');
+        const hls = new Hls();
+        hls.loadSource(m3u8Urls[index]);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play();
         });
-    </script>
+
+        wrapper.addEventListener('click', () => {
+            toggleFullscreen(wrapper, video);
+        });
+    });
+
+    function toggleFullscreen(wrapper, video) {
+        if (!document.fullscreenElement) {
+            wrapper.classList.add('fullscreen');
+            video.requestFullscreen();
+        } else {
+            wrapper.classList.remove('fullscreen');
+            document.exitFullscreen();
+        }
+    }
+</script>
+
 </body>
 </html>
