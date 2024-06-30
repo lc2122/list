@@ -1,0 +1,12 @@
+
+.video-container {
+  display: flex; /* 비디오들을 가로로 나열 */
+  flex-wrap: wrap; /* 필요하면 다음 줄로 넘어감 */
+}
+
+.video-container video {
+  width: 200px; /* 작은 창 크기 조절 */
+  height: 150px;
+  margin: 10px;
+  cursor: pointer; /* 클릭 가능하도록 표시 */
+}
