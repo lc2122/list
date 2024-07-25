@@ -1,91 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>M3U8 Player Grid</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <style>
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            padding: 10px;
-        }
-        .video-wrapper {
-            position: relative;
-            cursor: pointer;
-        }
-        .video-player {
-            width: 100%;
-            height: 100%;
-        }
-        .fullscreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1000;
-            background-color: black;
-        }
-    </style>
+<style>
+.container {
+  display: flex; /* 좌우 배치 설정 */
+}
+
+.resizable {
+  width: 50%; /* 초기 너비 설정 (조절 가능) */
+  resize: horizontal; /* 가로 방향으로 크기 조절 설정 */
+  overflow: hidden; /* 넘치는 내용 숨김 */
+}
+
+iframe {
+  width: 100%; 
+  height: 100%;
+}
+</style>
 </head>
 <body>
 
-<div class="grid-container">
-    <div class="video-wrapper" id="player1">
-        <video class="video-player" controls></video>
-    </div>
-    <div class="video-wrapper" id="player2">
-        <video class="video-player" controls></video>
-    </div>
-    <div class="video-wrapper" id="player3">
-        <video class="video-player" controls></video>
-    </div>
-    <div class="video-wrapper" id="player4">
-        <video class="video-player" controls></video>
-    </div>
-    <div class="video-wrapper" id="player5">
-        <video class="video-player" controls></video>
-    </div>
+<div class="container">
+  <div class="resizable">
+    <iframe src="https://www.youtube.com/embed/2kx4xmOEcO8" frameborder="0" allowfullscreen></iframe>
+  </div>
+  <div class="resizable">
+    <iframe src="https://chzzk.naver.com/live/181a3baebe508d3b5fa5d9fe4d6b5241/chat" frameborder="0"></iframe>
+  </div>
 </div>
-
-<script>
-    const m3u8Urls = [
-            'https://api.sooplive.com/media/live/soopbaseball1/master.m3u8',
-            'https://api.sooplive.com/media/live/soopbaseball2/master.m3u8',
-            'https://api.sooplive.com/media/live/soopbaseball3/master.m3u8',
-            'https://api.sooplive.com/media/live/soopbaseball4/master.m3u8',
-            'https://api.sooplive.com/media/live/soopbaseball5/master.m3u8'
-    ];
-
-    const players = document.querySelectorAll('.video-wrapper');
-
-    players.forEach((wrapper, index) => {
-        const video = wrapper.querySelector('video');
-        const hls = new Hls();
-        hls.loadSource(m3u8Urls[index]);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play();
-        });
-
-        wrapper.addEventListener('click', () => {
-            toggleFullscreen(wrapper, video);
-        });
-    });
-
-    function toggleFullscreen(wrapper, video) {
-        if (!document.fullscreenElement) {
-            wrapper.classList.add('fullscreen');
-            video.requestFullscreen();
-        } else {
-            wrapper.classList.remove('fullscreen');
-            document.exitFullscreen();
-        }
-    }
-</script>
 
 </body>
 </html>
