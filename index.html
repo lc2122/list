@@ -26,16 +26,12 @@
       text-align: center;
       grid-column: span 5;
     }
-    /* New styles for the tab */
-    .tab {
-      text-align: center;
-      padding: 10px 0;
-      background-color: #f0f0f0;
-    }
-    .tab button {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
+    .top-menu {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
     }
   </style>
   <script src="https://fastly.jsdelivr.net/npm/hls.js@latest"></script>
@@ -67,20 +63,45 @@
       const wrapperSet1 = document.getElementById('wrapperSet1');
       const wrapperSet2 = document.getElementById('wrapperSet2');
 
-      // Adding the '국대' tab
-      const tabDiv = document.createElement('div');
-      tabDiv.className = 'tab';
-      tabDiv.innerHTML = `
-        <button onclick="pot2('https://live05.coupangstreaming.com/out/v1/95dd437165d84accb8785d169d128f1b/manifest/index.m3u8')">국대 (카팟으로 열기)</button>
-      `;
-      document.body.insertBefore(tabDiv, document.body.firstChild);
+      // 1번 세트: 첫 번째 URL
+      for (let i = 1; i <= 40; i++) {
+        const videoNumber = String(i).padStart(2, '0');
+        const div = document.createElement('div');
+        div.className = 'tg-0pky';
+        div.innerHTML = `
+          ${videoNumber}<br>
+          <video id="video1_${videoNumber}" width="100%"></video>
+          <input type='button' value='HLS' onclick="pot1('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8');"></input>
+          <input type='button' value='카팟' onclick="pot2('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8');"></input>
+        `;
+        wrapperSet1.appendChild(div);
+        const video = document.getElementById('video1_' + videoNumber);
+        callVideo1(video, `https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8`);
+      }
 
-      // Your existing code for wrapperSet1 and wrapperSet2...
-      // ... (rest of your script remains unchanged)
+      // 2번 세트: 두 번째 URL
+      for (let i = 1; i <= 40; i++) {
+        const videoNumber = String(i).padStart(2, '0');
+        const div = document.createElement('div');
+        div.className = 'tg-0pky';
+        div.innerHTML = `
+          ${videoNumber}<br>
+          <video id="video2_${videoNumber}" width="100%"></video>
+          <input type='button' value='HLS' onclick="pot1('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_14173921312004482655_hls.m3u8');"></input>
+          <input type='button' value='카팟' onclick="pot2('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_14173921312004482655_hls.m3u8');"></input>
+        `;
+        wrapperSet2.appendChild(div);
+        const video = document.getElementById('video2_' + videoNumber);
+        callVideo1(video, `https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_14173921312004482655_hls.m3u8`);
+      }
     });
   </script>
 </head>
 <body>
+  <div class="top-menu">
+    <h2>국대</h2>
+    <input type='button' value='카팟으로 열기' onclick="pot2('https://live05.coupangstreaming.com/out/v1/95dd437165d84accb8785d169d128f1b/manifest/index.m3u8');"></input>
+  </div>
   <div class="wrapper" id="wrapperSet1">
     <div class="title">번호 채널 (Set 1)</div>
   </div>
