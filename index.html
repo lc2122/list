@@ -60,26 +60,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-      const wrapperSet1 = document.getElementById('wrapperSet1');
       const wrapperSet2 = document.getElementById('wrapperSet2');
 
-      // 1번 세트: 첫 번째 URL
-      for (let i = 1; i <= 40; i++) {
-        const videoNumber = String(i).padStart(2, '0');
-        const div = document.createElement('div');
-        div.className = 'tg-0pky';
-        div.innerHTML = `
-          ${videoNumber}<br>
-          <video id="video1_${videoNumber}" width="100%"></video>
-          <input type='button' value='HLS' onclick="pot1('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8');"></input>
-          <input type='button' value='카팟' onclick="pot2('https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8');"></input>
-        `;
-        wrapperSet1.appendChild(div);
-        const video = document.getElementById('video1_' + videoNumber);
-        callVideo1(video, `https://ch${videoNumber}-elivecdn.spotvnow.co.kr/ch${videoNumber}/cbcs/medialist_9171188557012390620_hls.m3u8`);
-      }
-
-      // 2번 세트: 두 번째 URL
+      // 2번 세트만 표시
       for (let i = 1; i <= 40; i++) {
         const videoNumber = String(i).padStart(2, '0');
         const div = document.createElement('div');
@@ -98,12 +81,8 @@
   </script>
 </head>
 <body>
-  <div class="wrapper" id="wrapperSet1">
-    <div class="title">번호 채널 (Set 1)</div>
-  </div>
-
   <div class="wrapper" id="wrapperSet2">
-    <div class="title">번호 채널 (Set 2)</div>
+    <div class="title">번호 채널</div>
   </div>
 </body>
 </html>
