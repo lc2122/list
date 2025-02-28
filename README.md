@@ -34,3 +34,6 @@ https://greasyfork.org/en/scripts/505975-lolcast-macro
 5. 치지직 재생 슬라이더
 <br>해당 링크에서 설명대로 설치<br>
 https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Live_Progress_Slider
+<br>
+6. 치지직 탭전환시 영상 꺼짐 방지<br>
+https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Always_Awake
