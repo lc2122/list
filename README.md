@@ -6,6 +6,8 @@ hls 플레이어
 <br>
 https://chromewebstore.google.com/detail/hls-player-m3u8-streaming/eakdijdofmnclopcffkkgmndadhbjgka?hl=ko
 <br>
+모바일용 롤캐 사이트<br>
+https://lc2122.github.io/lolcast/
 
 
 <br>1. 롤캐 치지직 알림
@@ -14,9 +16,16 @@ https://chromewebstore.google.com/detail/hls-player-m3u8-streaming/eakdijdofmncl
 <br>처음 설치 시 모든 알림 뜨고 그 이후로 켜진 채널만 작동<br>
 https://greasyfork.org/en/scripts/528340-lolcast-chzzk-alarm
 <br><br>
+2. 롤캐 이모티콘 매크로 
+<br>이모티콘 등록 누르면 실행
+<br>
+https://greasyfork.org/en/scripts/505975-lolcast-macro
+
+<br>
 3. 치지직 넓은 화면 모드
 <br>자동으로 채팅창이 꺼지며 넓은화면 실행
 <br>https://greasyfork.org/en/scripts/527302-chzzk-theater-mode
+
 <br><br>
 4. 치지직 로그인
 <br>해당 링크에서 설명대로 설치
