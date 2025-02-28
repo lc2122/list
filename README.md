@@ -1,4 +1,10 @@
-탬퍼몽키 설치 필수
+필수설치<br>
+탬퍼몽키<br>
+https://chromewebstore.google.com/detail/tampermonkey-beta/gcalenpjmijncebpfijmoaglllgpjagf?hl=ko
+<br>
+hls 플레이어
+<br>
+https://chromewebstore.google.com/detail/hls-player-m3u8-streaming/eakdijdofmnclopcffkkgmndadhbjgka?hl=ko
 <br>
 
 
