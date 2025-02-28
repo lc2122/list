@@ -10,7 +10,7 @@ https://chromewebstore.google.com/detail/hls-player-m3u8-streaming/eakdijdofmncl
 
 <br>1. 롤캐 치지직 알림
 <br>CORS 항상 허용해야 합니다
-<br>설정에서 모든 팔로우 or 알림설정 한 팔로우만 설정 가능합니다
+<br>설정에서 '모든 팔로우' or '알림설정 한 팔로우만' 설정 가능합니다
 <br>처음 설치 시 모든 알림 뜨고 그 이후로 켜진 채널만 작동<br>
 https://greasyfork.org/en/scripts/528340-lolcast-chzzk-alarm
 <br><br>
