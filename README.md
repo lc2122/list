@@ -1,4 +1,3 @@
-필수설치<br>
 탬퍼몽키<br>
 https://chromewebstore.google.com/detail/tampermonkey-beta/gcalenpjmijncebpfijmoaglllgpjagf?hl=ko
 <br>
