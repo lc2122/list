@@ -5,8 +5,8 @@
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        http://*/*
 // @match        https://*/*
-// @downloadURL https://github.com/lc2122/list/raw/main/chzzkalarm.js
-// @updateURL https://github.com/lc2122/list/raw/main/chzzkalarm.js
+// @downloadURL  https://github.com/lc2122/list/raw/main/chzzkalarm.js
+// @updateURL    https://github.com/lc2122/list/raw/main/chzzkalarm.js
 // @grant        GM_addStyle
 // @grant        GM_notification
 // @grant        GM_getValue
