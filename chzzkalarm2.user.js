@@ -140,5 +140,32 @@
         }
     }
 
-    // 나머지 코드 생략 (변경 없는 부분)
+// 주기적 실행
+    async function startBackgroundCheck() {
+        await fetchLiveStatus();
+        setInterval(fetchLiveStatus, heartbeatInterval);
+    }
+
+    // 초기화 및 실행
+    console.log('CHIZZK.follow-notification (Background) :: Starting...');
+    
+    // 설치 후 즉시 설정 UI 호출 (최초 설치 시에만)
+    if (!GM_getValue('isInstalled', false)) {
+        console.log('CHIZZK.follow-notification :: First installation detected, opening settings UI');
+        await createSettingsUI();
+        GM_setValue('isInstalled', true); // 설치 플래그 설정
+    }
+
+    await startBackgroundCheck();
+
+    // 스크립트 종료 시 실행 중 플래그 해제
+    window.addEventListener('unload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on unload');
+    });
+
+    window.addEventListener('beforeunload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on beforeunload');
+    });
 })();
