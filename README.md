@@ -21,9 +21,9 @@ https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
 https://greasyfork.org/en/scripts/505975-lolcast-macro
 
 <br>
-3. 치지직 넓은 화면 모드
-<br>자동으로 채팅창이 꺼지며 넓은화면 실행
-<br>https://greasyfork.org/en/scripts/527302-chzzk-theater-mode
+3. 치지직 넓은 화면 모드+롤캐 사이드바 설정
+<br>자동으로 채팅창이 꺼지며 넓은화면 실행 + 롤캐 좌우 사이드바 설정
+<br>https://greasyfork.org/en/scripts/527302-chzzk-theater-mode-lolcast-sidebar-control
 
 <br>
 4. 치지직 로그인
