@@ -5,17 +5,17 @@
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        http://*/*
 // @match        https://*/*
+// @downloadURL https://github.com/lc2122/list/raw/main/chzzkalarm.js
+// @updateURL https://github.com/lc2122/list/raw/main/chzzkalarm.js
 // @grant        GM_addStyle
 // @grant        GM_notification
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
-// @downloadURL https://update.greasyfork.org/scripts/528340/lolcast%20chzzk%20alarm.user.js
-// @updateURL https://update.greasyfork.org/scripts/528340/lolcast%20chzzk%20alarm.meta.js
 // ==/UserScript==
 
-(async function() {
+(function() {
     'use strict';
 
     // 설정값 초기화
@@ -37,16 +37,6 @@
 
     // 스타일 추가
     GM_addStyle(`
-        #settingUI {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: #ffffff;
-            padding: 20px;
-            border: 2px solid #333;
-            z-index: 99999; /* 더 높은 z-index로 변경 */
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
         #followListSection {
             margin-top: 20px;
             max-height: 300px;
@@ -198,7 +188,7 @@
             const channelImageUrl = data.channelImageUrl || 'https://ssl.pstatic.net/cmstatic/nng/img/img_anonymous_square_gray_opacity2x.png?type=f120_120_na';
             const channelName = data.channelName;
             const channelId = data.channelId;
-            const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
+            const channelLink = `${channelId}`;
 
             if (settingBrowserNoti) {
                 console.log('CHIZZK.follow-notification :: Triggering notification for', channelName);
@@ -209,7 +199,7 @@
                     timeout: 15000,
                     onclick: () => {
                         console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
-                        window.open(channelLink, '_blank');
+                        window.open('https://lolcast.kr/#/player/chzzk/' + channelLink, '_blank');
                     }
                 });
                 console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
@@ -237,7 +227,7 @@
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
                 updatedStatus[channel.channelId] = {
                     openLive: false,
-                    notified: prevOpenLive ? wasNotified : false,
+                    notified: prevOpenLive ? wasNotified : false, // 방송이 꺼지면 notified 리셋
                     channelName: channel.channelName,
                     channelImageUrl: channel.channelImageUrl
                 };
@@ -270,7 +260,6 @@
     // 설정 UI (팔로우 리스트 포함, 방송 중인 채널 맨 위로 정렬)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
-
         const existingUI = document.getElementById('settingUI');
         if (existingUI) {
             console.log('CHIZZK.follow-notification :: Existing UI found, removing it');
@@ -279,6 +268,8 @@
 
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
+        settingsContainer.style = 'position: fixed; top: 10px; left: 10px; background-color: white; padding: 20px; border: 1px solid #ddd; z-index: 10000; color: black;';
+
         settingsContainer.innerHTML = `
             <div>
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
@@ -295,7 +286,6 @@
             </div>
         `;
         document.body.appendChild(settingsContainer);
-        console.log('CHIZZK.follow-notification :: Settings container added to DOM');
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
@@ -309,10 +299,11 @@
             if (allChannels.length === 0) {
                 followListSection.innerHTML += '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
             } else {
+                // 방송 중인 채널을 맨 위로 정렬
                 allChannels.sort((a, b) => {
                     const aIsLive = liveChannelIds.has(a.channelId);
                     const bIsLive = liveChannelIds.has(b.channelId);
-                    return bIsLive - aIsLive;
+                    return bIsLive - aIsLive; // true가 맨 위로 오도록 역순 정렬
                 });
 
                 allChannels.forEach(channel => {
@@ -324,12 +315,12 @@
                 });
             }
         } catch (e) {
-            console.error('CHIZZK.follow-notification :: Error loading follow list:', e);
             followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
         }
 
         const saveButton = settingsContainer.querySelector('#saveSettings');
-        saveButton.removeEventListener('click', saveSettingsHandler);
+        // 기존 리스너 제거 후 새로 추가
+        saveButton.removeEventListener('click', saveSettingsHandler); // 중복 방지
         saveButton.addEventListener('click', saveSettingsHandler);
 
         function saveSettingsHandler() {
@@ -343,8 +334,8 @@
     }
 
     // 주기적 실행
-    async function startBackgroundCheck() {
-        await fetchLiveStatus();
+    function startBackgroundCheck() {
+        fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
