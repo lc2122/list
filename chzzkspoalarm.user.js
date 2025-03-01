@@ -55,7 +55,7 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
     const m3u8BaseUrl = 'https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8';
     const m3u8ChannelRange = Array.from({ length: 40 }, (_, i) => i + 1); // 1부터 40까지 채널 번호
 
-    // 스타일 추가 (Whale 호환성 강화)
+    // 스타일 추가 (화면 위 고정 보장)
     GM_addStyle(`
         #settingUI {
             position: fixed !important;
@@ -71,6 +71,7 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
             box-shadow: 0 0 10px rgba(0,0,0,0.5) !important; /* 시각적 확인용 */
             opacity: 1 !important;
             visibility: visible !important;
+            transform: translateZ(0) !important; /* 렌더링 강제 */
         }
         #followListSection {
             margin-top: 20px;
@@ -336,7 +337,7 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
         }
     }
 
-    // 설정 UI (치지직 + M3U8 통합, Whale 호환성 강화)
+    // 설정 UI (치지직 + M3U8 통합, 화면 위 고정)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
         if (document.readyState !== 'complete') {
@@ -367,8 +368,8 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
                 <p>로딩 중...</p>
             </div>
         `;
-        document.body.appendChild(settingsContainer);
-        console.log('CHIZZK.follow-notification :: Settings container added to DOM');
+        document.documentElement.appendChild(settingsContainer); // 최상위 요소에 추가
+        console.log('CHIZZK.follow-notification :: Settings container added to documentElement');
 
         // 렌더링 강제 확인
         settingsContainer.style.display = 'block';
