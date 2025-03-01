@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
-// @version      1.22
+// @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        http://*/*
 // @match        https://*/*
@@ -13,28 +13,40 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
-// @run-at       document-start // 추가
+// @run-at       document-start
 // ==/UserScript==
 
 (async function() {
     'use strict';
 
-    // 설정값 초기화
-    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
-    let settingReferNoti = GM_getValue('setReferNoti', false);
-    const heartbeatInterval = 60 * 1000; // 60초마다 체크
-
     // 상태 저장 키
     const statusKey = 'chzzk_follow_notification_status';
-    let currentFollowingStatus = GM_getValue(statusKey, {});
+    const runningKey = 'chzzk_follow_notification_running';
+    const heartbeatInterval = 60 * 1000; // 60초마다 체크
+
+    // 메뉴 등록 (runningKey 체크 전에 실행)
+    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
+            createSettingsUI();
+        });
+        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    } else {
+        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
+    }
 
     // 실행 중 여부 확인 (중복 방지)
-    const runningKey = 'chzzk_follow_notification_running';
     if (GM_getValue(runningKey, false)) {
         console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
         return;
     }
     GM_setValue(runningKey, true);
+
+    // 설정값 초기화
+    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
+    let settingReferNoti = GM_getValue('setReferNoti', false);
+    let currentFollowingStatus = GM_getValue(statusKey, {});
 
     // 스타일 추가
     GM_addStyle(`
@@ -71,18 +83,6 @@
             text-decoration: underline;
         }
     `);
-
-    // 메뉴 등록
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
-            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-            createSettingsUI();
-        });
-        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
-    } else {
-        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
-    }
 
     // API 호출 함수 (GM_xmlhttpRequest 사용)
     function fetchApi(url) {
@@ -363,5 +363,12 @@
     // 스크립트 종료 시 실행 중 플래그 해제
     window.addEventListener('unload', () => {
         GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on unload');
+    });
+
+    // 추가적인 종료 보장
+    window.addEventListener('beforeunload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on beforeunload');
     });
 })();
