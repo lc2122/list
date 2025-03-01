@@ -21,26 +21,38 @@
 (async function() {
     'use strict';
 
-    // 설정값 초기화
-    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
-    let settingReferNoti = GM_getValue('setReferNoti', false);
-    const heartbeatInterval = 60 * 1000; // 60초마다 체크
-
     // 상태 저장 키
     const statusKey = 'chzzk_follow_notification_status';
-    let currentFollowingStatus = GM_getValue(statusKey, {});
-
-    // M3U8 채널 기본 정보
-    const m3u8BaseUrl = 'https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8';
-    const m3u8ChannelRange = Array.from({ length: 40 }, (_, i) => i + 1); // 1부터 40까지 채널 번호
-
-    // 실행 중 여부 확인 (중복 방지)
     const runningKey = 'chzzk_follow_notification_running';
+    const heartbeatInterval = 60 * 1000; // 60초마다 체크
+
+    // 메뉴 등록 (항상 실행)
+    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
+            createSettingsUI();
+        });
+        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    } else {
+        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
+    }
+
+    // 실행 중 여부 확인 (중복 방지 개선)
     if (GM_getValue(runningKey, false)) {
         console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
         return;
     }
     GM_setValue(runningKey, true);
+
+    // 설정값 초기화
+    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
+    let settingReferNoti = GM_getValue('setReferNoti', false);
+    let currentFollowingStatus = GM_getValue(statusKey, {});
+    
+    // M3U8 채널 기본 정보
+    const m3u8BaseUrl = 'https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8';
+    const m3u8ChannelRange = Array.from({ length: 40 }, (_, i) => i + 1); // 1부터 40까지 채널 번호
 
     // 스타일 추가
     GM_addStyle(`
@@ -66,18 +78,6 @@
             text-decoration: underline;
         }
     `);
-
-    // 메뉴 등록
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
-            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-            createSettingsUI();
-        });
-        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
-    } else {
-        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
-    }
 
     // API 호출 함수 (GM_xmlhttpRequest 사용)
     function fetchApi(url, isHead = false) {
