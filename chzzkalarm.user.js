@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
-// @version      1.21
+// @version      1.22
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        http://*/*
 // @match        https://*/*
@@ -13,6 +13,7 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
+// @run-at       document-start // 추가
 // ==/UserScript==
 
 (async function() {
@@ -37,6 +38,17 @@
 
     // 스타일 추가
     GM_addStyle(`
+        #settingUI {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            z-index: 99999;
+            color: black;
+            pointer-events: auto;
+        }
         #followListSection {
             margin-top: 20px;
             max-height: 300px;
@@ -109,7 +121,6 @@
             const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings';
             const data = await fetchApi(apiUrl);
             const allChannelIds = [];
-
             const followList = data.content?.data || data.content?.followingList || [];
             console.log('CHIZZK.follow-notification - fetchAllFollowing :: Raw follow list:', followList);
 
@@ -257,6 +268,10 @@
     // 설정 UI (팔로우 리스트 포함, 방송 중인 채널 맨 위로 정렬)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
+        if (document.readyState !== 'complete') {
+            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+        }
+
         const existingUI = document.getElementById('settingUI');
         if (existingUI) {
             console.log('CHIZZK.follow-notification :: Existing UI found, removing it');
@@ -265,8 +280,6 @@
 
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
-        settingsContainer.style = 'position: fixed; top: 10px; left: 10px; background-color: white; padding: 20px; border: 1px solid #ddd; z-index: 10000; color: black;';
-
         settingsContainer.innerHTML = `
             <div>
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
@@ -283,6 +296,7 @@
             </div>
         `;
         document.body.appendChild(settingsContainer);
+        console.log('CHIZZK.follow-notification :: Settings container added to DOM');
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
@@ -311,11 +325,11 @@
                 });
             }
         } catch (e) {
+            console.error('CHIZZK.follow-notification :: Error loading follow list:', e);
             followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
         }
 
         const saveButton = settingsContainer.querySelector('#saveSettings');
-        saveButton.removeEventListener('click', saveSettingsHandler);
         saveButton.addEventListener('click', saveSettingsHandler);
 
         function saveSettingsHandler() {
