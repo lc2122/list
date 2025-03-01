@@ -17,47 +17,33 @@
 // @run-at       document-start
 // ==/UserScript==
 
+
 (async function() {
     'use strict';
 
-    // 상태 저장 키
-    const statusKey = 'chzzk_follow_notification_status';
-    const runningKey = 'chzzk_follow_notification_running';
+    // 설정값 초기화
+    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
+    let settingReferNoti = GM_getValue('setReferNoti', false);
     const heartbeatInterval = 60 * 1000; // 60초마다 체크
 
-    // 메뉴 등록
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    GM_registerMenuCommand('설정 및 팔로우 리스트', async () => {
-        console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-        await createSettingsUI();
-    });
-    console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    // 상태 저장 키
+    const statusKey = 'chzzk_follow_notification_status';
+    let currentFollowingStatus = GM_getValue(statusKey, {});
 
-    // 실행 중 여부 확인
+    // M3U8 채널 기본 정보
+    const m3u8BaseUrl = 'https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8';
+    const m3u8ChannelRange = Array.from({ length: 40 }, (_, i) => i + 1); // 1부터 40까지 채널 번호
+
+    // 실행 중 여부 확인 (중복 방지)
+    const runningKey = 'chzzk_follow_notification_running';
     if (GM_getValue(runningKey, false)) {
         console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
         return;
     }
     GM_setValue(runningKey, true);
 
-    // 설정값 초기화
-    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
-    let settingReferNoti = GM_getValue('setReferNoti', false);
-    let currentFollowingStatus = GM_getValue(statusKey, {});
-
     // 스타일 추가
     GM_addStyle(`
-        #settingUI {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: white;
-            padding: 20px;
-            border: 1px solid #ddd;
-            z-index: 99999;
-            color: black;
-            pointer-events: auto;
-        }
         #followListSection {
             margin-top: 20px;
             max-height: 300px;
@@ -65,22 +51,291 @@
             border-top: 1px solid #ddd;
             padding-top: 10px;
         }
+        .followItem {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .followItem.live {
+            background-color: #e0ffe0;
+        }
+        .followItem a {
+            text-decoration: none;
+            color: #007bff;
+        }
+        .followItem a:hover {
+            text-decoration: underline;
+        }
     `);
 
-    // 설정 UI 생성 함수
+    // 메뉴 등록
+    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
+            createSettingsUI();
+        });
+        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    } else {
+        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
+    }
+
+    // API 호출 함수 (GM_xmlhttpRequest 사용)
+    function fetchApi(url, isHead = false) {
+        return new Promise((resolve, reject) => {
+            console.log('CHIZZK.follow-notification :: Fetching URL from', url, 'isHead:', isHead);
+            GM_xmlhttpRequest({
+                method: isHead ? 'HEAD' : 'GET',
+                url: url,
+                headers: {
+                    'Accept': 'application/json, text/html',
+                    'Content-Type': 'application/json'
+                },
+                withCredentials: true,
+                onload: function(response) {
+                    try {
+                        if (isHead) {
+                            console.log('CHIZZK.follow-notification :: HEAD response status:', response.status);
+                            resolve(response.status === 200);
+                        } else {
+                            const data = JSON.parse(response.responseText);
+                            console.log('CHIZZK.follow-notification - fetchApi response :: ', data);
+                            resolve(data);
+                        }
+                    } catch (e) {
+                        console.error('CHIZZK.follow-notification :: Failed to parse response', e);
+                        reject(e);
+                    }
+                },
+                onerror: function(error) {
+                    console.error('CHIZZK.follow-notification - fetchApi error :: ', error);
+                    resolve(false); // M3U8 체크에서 오류 시 비활성화로 처리
+                }
+            });
+        });
+    }
+
+    // 모든 치지직 팔로우 채널 가져오기
+    async function fetchAllFollowing() {
+        try {
+            const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings';
+            const data = await fetchApi(apiUrl);
+            const allChannelIds = [];
+
+            const followList = data.content?.data || data.content?.followingList || [];
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Raw follow list:', followList);
+
+            if (!followList.length) {
+                console.warn('CHIZZK.follow-notification - fetchAllFollowing :: No channels found in response');
+                return [];
+            }
+
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Found all channels', followList.length);
+
+            followList.forEach(channel => {
+                const detailData = {
+                    channelId: channel.channel?.channelId || channel.channelId,
+                    channelName: channel.channel?.channelName || 'Unknown',
+                    channelImageUrl: channel.channel?.channelImageUrl || null,
+                    openLive: false,
+                    platform: 'chzzk'
+                };
+                allChannelIds.push(detailData);
+            });
+
+            return allChannelIds;
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchAllFollowing :: ', e);
+            return [];
+        }
+    }
+
+    // 치지직 방송 중인 팔로우 채널 가져오기
+    async function fetchLiveFollowing() {
+        try {
+            const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings/live';
+            const data = await fetchApi(apiUrl);
+            const liveChannelIds = [];
+
+            if (!data.content || !data.content.followingList) {
+                console.error('CHIZZK.follow-notification - fetchLiveFollowing :: Invalid API response', data);
+                return [];
+            }
+
+            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live channels', data.content.followingList.length);
+
+            data.content.followingList.forEach(channel => {
+                const notificationSetting = channel.channel.personalData?.following?.notification;
+                const detailData = {
+                    channelId: channel.channelId,
+                    channelName: channel.channel.channelName,
+                    channelImageUrl: channel.channel.channelImageUrl,
+                    openLive: channel.streamer.openLive,
+                    liveTitle: channel.liveInfo.liveTitle,
+                    platform: 'chzzk'
+                };
+
+                if (settingReferNoti) {
+                    if (notificationSetting === true) {
+                        liveChannelIds.push(detailData);
+                    }
+                } else {
+                    liveChannelIds.push(detailData);
+                }
+            });
+
+            return liveChannelIds;
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchLiveFollowing :: ', e);
+            return [];
+        }
+    }
+
+    // M3U8 채널 상태 체크 (1~40)
+    async function fetchM3U8LiveStatus() {
+        const liveChannelIds = [];
+        for (let videoNumber = 1; videoNumber <= 40; videoNumber++) {
+            const m3u8Url = `https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8`;
+            try {
+                const isLive = await fetchApi(m3u8Url, true); // HEAD 요청으로 상태 확인
+                console.log('CHIZZK.follow-notification - fetchM3U8LiveStatus :: Channel ch', videoNumber, 'isLive:', isLive);
+
+                if (isLive) {
+                    liveChannelIds.push({
+                        channelId: `ch${videoNumber}`,
+                        channelName: `SPOTV Channel ${videoNumber}`,
+                        channelImageUrl: null,
+                        openLive: true,
+                        liveTitle: `SPOTV Live Channel ${videoNumber}`,
+                        platform: 'm3u8',
+                        m3u8Url: m3u8Url
+                    });
+                }
+            } catch (e) {
+                console.error('CHIZZK.follow-notification - fetchM3U8LiveStatus :: Error checking ch', videoNumber, e);
+            }
+        }
+        return liveChannelIds;
+    }
+
+    // 방송 시작 알림
+    function onairNotificationPopup(data) {
+        try {
+            if (!data) return;
+
+            console.log('CHIZZK.follow-notification - onairNotificationPopup data :: ', data);
+
+            const liveTitle = data.liveTitle ? data.liveTitle.substring(0, 28).concat('..') : '방송 중';
+            const channelImageUrl = data.channelImageUrl || 'https://ssl.pstatic.net/cmstatic/nng/img/img_anonymous_square_gray_opacity2x.png?type=f120_120_na';
+            const channelName = data.channelName;
+            const channelId = data.channelId;
+            const channelLink = data.platform === 'm3u8' 
+                ? data.m3u8Url 
+                : `https://lolcast.kr/#/player/chzzk/${channelId}`;
+
+            if (settingBrowserNoti) {
+                console.log('CHIZZK.follow-notification :: Triggering notification for', channelName);
+                GM_notification({
+                    title: channelName,
+                    image: channelImageUrl,
+                    text: liveTitle,
+                    timeout: 15000,
+                    onclick: () => {
+                        console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
+                        window.open(channelLink, '_blank');
+                    }
+                });
+                console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
+            } else {
+                console.log('CHIZZK.follow-notification :: Browser notification disabled');
+            }
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - onairNotificationPopup error :: ', e);
+        }
+    }
+
+    // 방송 상태 체크 (치지직 + M3U8)
+    async function fetchLiveStatus() {
+        try {
+            console.log('CHIZZK.follow-notification :: Checking live status...');
+            const allChzzkChannels = await fetchAllFollowing();
+            const liveChzzkChannels = await fetchLiveFollowing();
+            const liveM3U8Channels = await fetchM3U8LiveStatus();
+
+            console.log('CHIZZK.follow-notification :: All Chzzk channels:', allChzzkChannels);
+            console.log('CHIZZK.follow-notification :: Live Chzzk channels:', liveChzzkChannels);
+            console.log('CHIZZK.follow-notification :: Live M3U8 channels:', liveM3U8Channels);
+
+            // 모든 채널을 기본 상태로 설정
+            const updatedStatus = {};
+            allChzzkChannels.forEach(channel => {
+                const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
+                const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                updatedStatus[channel.channelId] = {
+                    openLive: false,
+                    notified: prevOpenLive ? wasNotified : false,
+                    channelName: channel.channelName,
+                    channelImageUrl: channel.channelImageUrl,
+                    platform: 'chzzk'
+                };
+                console.log(`CHIZZK.follow-notification :: Initialized Chzzk Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
+            });
+
+            // 치지직 방송 중인 채널 업데이트
+            liveChzzkChannels.forEach(channel => {
+                const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
+                const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                console.log(`CHIZZK.follow-notification :: Updating Chzzk Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: ${channel.openLive}, wasNotified: ${wasNotified}`);
+
+                if (prevOpenLive === false && channel.openLive) {
+                    console.log(`CHIZZK.follow-notification - 상태 변화 감지 (Chzzk): 채널ID ${channel.channelId}, openLive: ${prevOpenLive} ==> ${channel.openLive}`);
+                    onairNotificationPopup(channel);
+                    updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl, platform: 'chzzk' };
+                } else {
+                    updatedStatus[channel.channelId] = { openLive: true, notified: wasNotified, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl, platform: 'chzzk' };
+                }
+            });
+
+            // M3U8 라이브 채널 업데이트
+            liveM3U8Channels.forEach(channel => {
+                const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
+                const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                console.log(`CHIZZK.follow-notification :: Updating M3U8 Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: ${channel.openLive}, wasNotified: ${wasNotified}`);
+
+                if (prevOpenLive === false && channel.openLive) {
+                    console.log(`CHIZZK.follow-notification - 상태 변화 감지 (M3U8): 채널ID ${channel.channelId}, openLive: ${prevOpenLive} ==> ${channel.openLive}`);
+                    onairNotificationPopup(channel);
+                }
+                updatedStatus[channel.channelId] = { 
+                    openLive: true, 
+                    notified: wasNotified || (prevOpenLive === false && channel.openLive), 
+                    channelName: channel.channelName, 
+                    channelImageUrl: channel.channelImageUrl, 
+                    platform: 'm3u8', 
+                    m3u8Url: channel.m3u8Url 
+                };
+            });
+
+            // 상태 업데이트 및 저장
+            currentFollowingStatus = updatedStatus;
+            GM_setValue(statusKey, currentFollowingStatus);
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchLiveStatus error :: ', e);
+        }
+    }
+
+    // 설정 UI (치지직 + M3U8 통합)
     async function createSettingsUI() {
-        // DOM이 로드될 때까지 대기
-        if (document.readyState !== 'complete') {
-            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+        console.log('CHIZZK.follow-notification :: createSettingsUI called');
+        const existingUI = document.getElementById('settingUI');
+        if (existingUI) {
+            console.log('CHIZZK.follow-notification :: Existing UI found, removing it');
+            existingUI.remove();
         }
 
-        // 기존 UI 제거
-        const existingUI = document.getElementById('settingUI');
-        if (existingUI) existingUI.remove();
-
-        // UI 생성
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
+        settingsContainer.style = 'position: fixed; top: 10px; left: 10px; background-color: white; padding: 20px; border: 1px solid #ddd; z-index: 10000; color: black;';
+
         settingsContainer.innerHTML = `
             <div>
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
@@ -98,35 +353,73 @@
         `;
         document.body.appendChild(settingsContainer);
 
-        // 저장 버튼 이벤트 등록
+        const followListSection = settingsContainer.querySelector('#followListSection');
+        try {
+            const allChzzkChannels = await fetchAllFollowing();
+            const liveChzzkChannels = await fetchLiveFollowing();
+            const liveM3U8Channels = await fetchM3U8LiveStatus();
+
+            console.log('CHIZZK.follow-notification :: Follow list loaded for UI - All Chzzk channels:', allChzzkChannels);
+            console.log('CHIZZK.follow-notification :: Follow list loaded for UI - Live Chzzk channels:', liveChzzkChannels);
+            console.log('CHIZZK.follow-notification :: Follow list loaded for UI - Live M3U8 channels:', liveM3U8Channels);
+
+            const liveChannelIds = new Set([...liveChzzkChannels.map(ch => ch.channelId), ...liveM3U8Channels.map(ch => ch.channelId)]);
+            const allChannels = [
+                ...allChzzkChannels,
+                ...liveM3U8Channels // 라이브 중인 M3U8 채널만 리스트에 추가
+            ];
+
+            followListSection.innerHTML = '<h3>팔로우 리스트</h3>';
+            if (allChannels.length === 0) {
+                followListSection.innerHTML += '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
+            } else {
+                allChannels.sort((a, b) => {
+                    const aIsLive = liveChannelIds.has(a.channelId);
+                    const bIsLive = liveChannelIds.has(b.channelId);
+                    return bIsLive - aIsLive; // 방송 중인 채널 맨 위로
+                });
+
+                allChannels.forEach(channel => {
+                    const isLive = liveChannelIds.has(channel.channelId);
+                    const item = document.createElement('div');
+                    item.className = `followItem ${isLive ? 'live' : ''}`;
+                    const linkUrl = channel.platform === 'm3u8' 
+                        ? channel.m3u8Url 
+                        : `https://lolcast.kr/#/player/chzzk/${channel.channelId}`;
+                    item.innerHTML = `<a href="${linkUrl}" target="_blank">${channel.channelName} (${channel.platform === 'm3u8' ? 'M3U8' : 'Chzzk'})</a> - ${isLive ? '방송 중' : '방송 종료'}`;
+                    followListSection.appendChild(item);
+                });
+            }
+        } catch (e) {
+            followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
+        }
+
         const saveButton = settingsContainer.querySelector('#saveSettings');
-        saveButton.addEventListener('click', () => {
+        saveButton.removeEventListener('click', saveSettingsHandler);
+        saveButton.addEventListener('click', saveSettingsHandler);
+
+        function saveSettingsHandler() {
             settingBrowserNoti = document.getElementById('followsetting_browser_noti').checked;
             settingReferNoti = document.getElementById('followsetting_refer_noti').checked;
             GM_setValue('setBrowserNoti', settingBrowserNoti);
             GM_setValue('setReferNoti', settingReferNoti);
-            console.log('CHIZZK.follow-notification :: Settings saved');
+            console.log('CHIZZK.follow-notification - Settings saved:', { settingBrowserNoti, settingReferNoti });
             settingsContainer.remove();
-        });
-
-        // 팔로우 리스트 로드 (간략화된 예시)
-        const followListSection = settingsContainer.querySelector('#followListSection');
-        followListSection.innerHTML = '<h3>팔로우 리스트</h3><p>여기에 팔로우 리스트가 표시됩니다.</p>';
+        }
     }
 
-    // 초기 실행 시 설정 UI 표시
-    if (!GM_getValue('isInstalled', false)) {
-        await createSettingsUI();
-        GM_setValue('isInstalled', true);
+    // 주기적 실행
+    function startBackgroundCheck() {
+        fetchLiveStatus();
+        setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
-    // 백그라운드 체크 (간략화)
-    async function startBackgroundCheck() {
-        console.log('CHIZZK.follow-notification :: Background check started');
-        setInterval(() => console.log('CHIZZK.follow-notification :: Checking...'), heartbeatInterval);
-    }
+    // 초기화 및 실행
+    console.log('CHIZZK.follow-notification (Background) :: Starting...');
     await startBackgroundCheck();
 
-    // 종료 시 플래그 해제
-    window.addEventListener('unload', () => GM_setValue(runningKey, false));
+    // 스크립트 종료 시 실행 중 플래그 해제
+    window.addEventListener('unload', () => {
+        GM_setValue(runningKey, false);
+    });
 })();
