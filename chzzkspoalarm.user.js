@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         lolcast chzzk spo alarm
-// @namespace    lolcast chzzk spo alarm
+// @name         lolcast chzzkspo alarm
+// @namespace    lolcast chzzkspo alarm
 // @version      0.1
 // @description  네이버 치지직 및 M3U8 채널 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        https://*.naver.com/* 
@@ -28,9 +28,9 @@
     // 메뉴 등록
     console.log('CHIZZK.follow-notification :: Attempting to register menu command');
     if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', async () => {
             console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-            createSettingsUI();
+            await createSettingsUI();
         });
         console.log('CHIZZK.follow-notification :: Menu command registered successfully');
     } else {
