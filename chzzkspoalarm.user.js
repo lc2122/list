@@ -132,33 +132,47 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
         });
     }
 
-    // 모든 치지직 팔로우 채널 가져오기
+    // 모든 팔로우 채널 가져오기 (치지직 + M3U8 통합)
     async function fetchAllFollowing() {
         try {
+            // 치지직 채널 가져오기
             const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings';
             const data = await fetchApi(apiUrl);
             const allChannelIds = [];
 
             const followList = data.content?.data || data.content?.followingList || [];
-            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Raw follow list:', followList);
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Raw Chzzk follow list:', followList);
 
-            if (!followList.length) {
-                console.warn('CHIZZK.follow-notification - fetchAllFollowing :: No channels found in response');
-                return [];
+            if (followList.length) {
+                console.log('CHIZZK.follow-notification - fetchAllFollowing :: Found Chzzk channels', followList.length);
+                followList.forEach(channel => {
+                    const detailData = {
+                        channelId: channel.channel?.channelId || channel.channelId,
+                        channelName: channel.channel?.channelName || 'Unknown',
+                        channelImageUrl: channel.channel?.channelImageUrl || null,
+                        openLive: false,
+                        platform: 'chzzk'
+                    };
+                    allChannelIds.push(detailData);
+                });
+            } else {
+                console.warn('CHIZZK.follow-notification - fetchAllFollowing :: No Chzzk channels found in response');
             }
 
-            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Found all channels', followList.length);
-
-            followList.forEach(channel => {
+            // M3U8 채널 추가 (1~40)
+            for (let videoNumber = 1; videoNumber <= 40; videoNumber++) {
+                const m3u8Url = `https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8`;
                 const detailData = {
-                    channelId: channel.channel?.channelId || channel.channelId,
-                    channelName: channel.channel?.channelName || 'Unknown',
-                    channelImageUrl: channel.channel?.channelImageUrl || null,
+                    channelId: `ch${videoNumber}`,
+                    channelName: `SPOTV Channel ${videoNumber}`,
+                    channelImageUrl: null,
                     openLive: false,
-                    platform: 'chzzk'
+                    platform: 'm3u8',
+                    m3u8Url: m3u8Url
                 };
                 allChannelIds.push(detailData);
-            });
+            }
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Added M3U8 channels (1-40)');
 
             return allChannelIds;
         } catch (e) {
@@ -179,7 +193,7 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
                 return [];
             }
 
-            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live channels', data.content.followingList.length);
+            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live Chzzk channels', data.content.followingList.length);
 
             data.content.followingList.forEach(channel => {
                 const notificationSetting = channel.channel.personalData?.following?.notification;
@@ -275,16 +289,16 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
     async function fetchLiveStatus() {
         try {
             console.log('CHIZZK.follow-notification :: Checking live status...');
-            const allChzzkChannels = await fetchAllFollowing();
+            const allChannels = await fetchAllFollowing(); // 통합된 치지직 + M3U8 채널 목록
             const liveChzzkChannels = await fetchLiveFollowing();
             const liveM3U8Channels = await fetchM3U8LiveStatus();
 
-            console.log('CHIZZK.follow-notification :: All Chzzk channels:', allChzzkChannels);
+            console.log('CHIZZK.follow-notification :: All channels (Chzzk + M3U8):', allChannels);
             console.log('CHIZZK.follow-notification :: Live Chzzk channels:', liveChzzkChannels);
             console.log('CHIZZK.follow-notification :: Live M3U8 channels:', liveM3U8Channels);
 
             const updatedStatus = {};
-            allChzzkChannels.forEach(channel => {
+            allChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
                 updatedStatus[channel.channelId] = {
@@ -292,9 +306,10 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
                     notified: prevOpenLive ? wasNotified : false,
                     channelName: channel.channelName,
                     channelImageUrl: channel.channelImageUrl,
-                    platform: 'chzzk'
+                    platform: channel.platform,
+                    ...(channel.platform === 'm3u8' ? { m3u8Url: channel.m3u8Url } : {})
                 };
-                console.log(`CHIZZK.follow-notification :: Initialized Chzzk Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
+                console.log(`CHIZZK.follow-notification :: Initialized Channel ${channel.channelId} (${channel.platform}) - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
             });
 
             liveChzzkChannels.forEach(channel => {
@@ -378,20 +393,16 @@ let settingReferNoti = GM_getValue('setReferNoti', false);
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
-            const allChzzkChannels = await fetchAllFollowing();
+            const allChannels = await fetchAllFollowing(); // 통합된 치지직 + M3U8 채널 목록
             const liveChzzkChannels = await fetchLiveFollowing();
             const liveM3U8Channels = await fetchM3U8LiveStatus();
 
-            console.log('CHIZZK.follow-notification :: Follow list loaded for UI - All Chzzk channels:', allChzzkChannels);
+            console.log('CHIZZK.follow-notification :: Follow list loaded for UI - All channels (Chzzk + M3U8):', allChannels);
             console.log('CHIZZK.follow-notification :: Follow list loaded for UI - Live Chzzk channels:', liveChzzkChannels);
             console.log('CHIZZK.follow-notification :: Follow list loaded for UI - Live M3U8 channels:', liveM3U8Channels);
 
             const liveChannelIds = new Set([...liveChzzkChannels.map(ch => ch.channelId), ...liveM3U8Channels.map(ch => ch.channelId)]);
-            const allChannels = [
-                ...allChzzkChannels,
-                ...liveM3U8Channels // 라이브 중인 M3U8 채널만 리스트에 추가
-            ];
-
+            
             followListSection.innerHTML = '<h3>팔로우 리스트</h3>';
             if (allChannels.length === 0) {
                 followListSection.innerHTML += '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
