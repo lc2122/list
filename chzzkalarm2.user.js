@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name         lolcast chzzk alarm
-// @namespace    http://tampermonkey.net/
+// @name         lolcast chzzk alarm2
+// @namespace    lolcast chzzk alarm2
 // @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        https://*.naver.com/*
+// @match        https://lc2122.github.io/lolcast/*
+// @match        https://lolcast.kr/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @updateURL    https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @grant        GM_addStyle
@@ -35,7 +37,7 @@
         console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
     }
 
-    // 실행 중 여부 확인 (중복 방지 개선)
+    // 실행 중 여부 확인 (중복 방지)
     if (GM_getValue(runningKey, false)) {
         console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
         return;
@@ -47,7 +49,7 @@
     let settingReferNoti = GM_getValue('setReferNoti', false);
     let currentFollowingStatus = GM_getValue(statusKey, {});
 
-    // 스타일 추가 (더 강력한 스타일 적용)
+    // 스타일 추가 (Whale 호환성 강화를 위해 스타일 강화)
     GM_addStyle(`
         #settingUI {
             position: fixed !important;
@@ -60,6 +62,7 @@
             color: black !important;
             pointer-events: auto !important;
             display: block !important;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5) !important; /* 시각적 확인용 */
         }
         #followListSection {
             margin-top: 20px;
@@ -84,7 +87,188 @@
         }
     `);
 
-    // 설정 UI (수정된 부분)
+    // API 호출 함수 (GM_xmlhttpRequest 사용)
+    function fetchApi(url) {
+        return new Promise((resolve, reject) => {
+            console.log('CHIZZK.follow-notification :: Fetching API from', url);
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: url,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                withCredentials: true,
+                onload: function(response) {
+                    try {
+                        console.log('CHIZZK.follow-notification :: Raw API response:', response.responseText);
+                        const data = JSON.parse(response.responseText);
+                        console.log('CHIZZK.follow-notification - fetchApi response :: ', data);
+                        resolve(data);
+                    } catch (e) {
+                        console.error('CHIZZK.follow-notification :: Failed to parse API response', e);
+                        reject(e);
+                    }
+                },
+                onerror: function(error) {
+                    console.error('CHIZZK.follow-notification - fetchApi error :: ', error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    // 모든 팔로우 채널 가져오기
+    async function fetchAllFollowing() {
+        try {
+            const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings';
+            const data = await fetchApi(apiUrl);
+            const allChannelIds = [];
+            const followList = data.content?.data || data.content?.followingList || [];
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Raw follow list:', followList);
+
+            if (!followList.length) {
+                console.warn('CHIZZK.follow-notification - fetchAllFollowing :: No channels found in response');
+                return [];
+            }
+
+            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Found all channels', followList.length);
+
+            followList.forEach(channel => {
+                const detailData = {
+                    channelId: channel.channel?.channelId || channel.channelId,
+                    channelName: channel.channel?.channelName || 'Unknown',
+                    channelImageUrl: channel.channel?.channelImageUrl || null,
+                    openLive: false
+                };
+                allChannelIds.push(detailData);
+            });
+
+            return allChannelIds;
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchAllFollowing :: ', e);
+            return [];
+        }
+    }
+
+    // 방송 중인 팔로우 채널 가져오기
+    async function fetchLiveFollowing() {
+        try {
+            const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings/live';
+            const data = await fetchApi(apiUrl);
+            const liveChannelIds = [];
+
+            if (!data.content || !data.content.followingList) {
+                console.error('CHIZZK.follow-notification - fetchLiveFollowing :: Invalid API response', data);
+                return [];
+            }
+
+            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live channels', data.content.followingList.length);
+
+            data.content.followingList.forEach(channel => {
+                const notificationSetting = channel.channel.personalData?.following?.notification;
+                const detailData = {
+                    channelId: channel.channelId,
+                    channelName: channel.channel.channelName,
+                    channelImageUrl: channel.channel.channelImageUrl,
+                    openLive: channel.streamer.openLive,
+                    liveTitle: channel.liveInfo.liveTitle
+                };
+
+                if (settingReferNoti) {
+                    if (notificationSetting === true) {
+                        liveChannelIds.push(detailData);
+                    }
+                } else {
+                    liveChannelIds.push(detailData);
+                }
+            });
+
+            return liveChannelIds;
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchLiveFollowing :: ', e);
+            return [];
+        }
+    }
+
+    // 방송 시작 알림
+    function onairNotificationPopup(data) {
+        try {
+            if (!data) return;
+
+            console.log('CHIZZK.follow-notification - onairNotificationPopup data :: ', data);
+
+            const liveTitle = data.liveTitle ? data.liveTitle.substring(0, 28).concat('..') : '방송 중';
+            const channelImageUrl = data.channelImageUrl || 'https://ssl.pstatic.net/cmstatic/nng/img/img_anonymous_square_gray_opacity2x.png?type=f120_120_na';
+            const channelName = data.channelName;
+            const channelId = data.channelId;
+            const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
+
+            if (settingBrowserNoti) {
+                console.log('CHIZZK.follow-notification :: Triggering notification for', channelName);
+                GM_notification({
+                    title: channelName,
+                    image: channelImageUrl,
+                    text: liveTitle,
+                    timeout: 15000,
+                    onclick: () => {
+                        console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
+                        window.open(channelLink, '_blank');
+                    }
+                });
+                console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
+            } else {
+                console.log('CHIZZK.follow-notification :: Browser notification disabled');
+            }
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - onairNotificationPopup error :: ', e);
+        }
+    }
+
+    // 방송 상태 체크
+    async function fetchLiveStatus() {
+        try {
+            console.log('CHIZZK.follow-notification :: Checking live status...');
+            const allChannels = await fetchAllFollowing();
+            const liveChannels = await fetchLiveFollowing();
+            console.log('CHIZZK.follow-notification :: All channels:', allChannels);
+            console.log('CHIZZK.follow-notification :: Live channels:', liveChannels);
+
+            const updatedStatus = {};
+            allChannels.forEach(channel => {
+                const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
+                const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                updatedStatus[channel.channelId] = {
+                    openLive: false,
+                    notified: prevOpenLive ? wasNotified : false,
+                    channelName: channel.channelName,
+                    channelImageUrl: channel.channelImageUrl
+                };
+                console.log(`CHIZZK.follow-notification :: Initialized Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
+            });
+
+            liveChannels.forEach(channel => {
+                const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
+                const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                console.log(`CHIZZK.follow-notification :: Updating Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: ${channel.openLive}, wasNotified: ${wasNotified}`);
+
+                if (prevOpenLive === false && channel.openLive) {
+                    console.log(`CHIZZK.follow-notification - 상태 변화 감지: 채널ID ${channel.channelId}, openLive: ${prevOpenLive} ==> ${channel.openLive}`);
+                    onairNotificationPopup(channel);
+                    updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
+                } else {
+                    updatedStatus[channel.channelId] = { openLive: true, notified: wasNotified, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
+                }
+            });
+
+            currentFollowingStatus = updatedStatus;
+            GM_setValue(statusKey, currentFollowingStatus);
+        } catch (e) {
+            console.error('CHIZZK.follow-notification - fetchLiveStatus error :: ', e);
+        }
+    }
+
+    // 설정 UI (Whale에서 렌더링 보장)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
         if (document.readyState !== 'complete') {
@@ -167,7 +351,7 @@
         }
     }
 
-// 주기적 실행
+    // 주기적 실행
     async function startBackgroundCheck() {
         await fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
