@@ -17,6 +17,10 @@
 // @run-at       document-start
 // ==/UserScript==
 
+// 설정값을 전역적으로 선언
+let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
+let settingReferNoti = GM_getValue('setReferNoti', false);
+
 (async function() {
     'use strict';
 
@@ -44,9 +48,7 @@
     }
     GM_setValue(runningKey, true);
 
-    // 설정값 초기화
-    let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
-    let settingReferNoti = GM_getValue('setReferNoti', false);
+    // 상태 초기화
     let currentFollowingStatus = GM_getValue(statusKey, {});
     
     // M3U8 채널 기본 정보
