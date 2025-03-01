@@ -211,7 +211,7 @@
                     timeout: 15000,
                     onclick: () => {
                         console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
-                        window.open(channelLink, '_blank');
+                        window.open(channelLink, '_self');
                     }
                 });
                 console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
