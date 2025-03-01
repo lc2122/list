@@ -3,9 +3,7 @@
 // @namespace    lolcast chzzk alarm2
 // @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
-// @match        https://*.naver.com/*
-// @match        https://lc2122.github.io/lolcast/*
-// @match        https://lolcast.kr/*
+// @match        https://insagirl-toto.appspot.com/chatting/lgic/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @updateURL    https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @grant        GM_addStyle
