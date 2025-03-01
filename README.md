@@ -13,7 +13,7 @@ https://lc2122.github.io/lolcast/
 <br>CORS 항상 허용해야 합니다
 <br>설정에서 '모든 팔로우' or '알림설정 한 팔로우만' 설정 가능합니다
 <br>처음 설치 시 모든 알림 뜨고 그 이후로 켜진 채널만 작동<br>
-https://greasyfork.org/en/scripts/528340-lolcast-chzzk-alarm
+[https://github.com/lc2122/list/raw/main/chzzkalarm.js](https://github.com/lc2122/list/raw/main/chzzkalarm.js)
 <br><br>
 2. 롤캐 이모티콘 매크로 
 <br>이모티콘 등록 누르면 실행
