@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name         lolcast chzzk alarm2
-// @namespace    lolcast chzzk alarm2
+// @name         lolcast chzzk alarm
+// @namespace    http://tampermonkey.net/
 // @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
-// @match        https://insagirl-toto.appspot.com/chatting/lgic/*
+// @match        https://*.naver.com/*
+// @match        https://lc2122.github.io/lolcast/*
+// @match        https://lolcast.kr/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @updateURL    https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm2.user.js
 // @grant        GM_addStyle
@@ -23,44 +25,23 @@
     const runningKey = 'chzzk_follow_notification_running';
     const heartbeatInterval = 60 * 1000; // 60초마다 체크
 
-    // 메뉴 등록 (항상 실행)
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
-            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-            createSettingsUI();
-        });
-        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
-    } else {
-        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
-    }
-
-    // 실행 중 여부 확인 (중복 방지)
-    if (GM_getValue(runningKey, false)) {
-        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
-        return;
-    }
-    GM_setValue(runningKey, true);
-
-    // 설정값 초기화
+    // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
     let settingReferNoti = GM_getValue('setReferNoti', false);
     let currentFollowingStatus = GM_getValue(statusKey, {});
 
-    // 스타일 추가 (Whale 호환성 강화를 위해 스타일 강화)
+    // 스타일 추가
     GM_addStyle(`
         #settingUI {
-            position: fixed !important;
-            top: 10px !important;
-            left: 10px !important;
-            background-color: white !important;
-            padding: 20px !important;
-            border: 2px solid #333 !important;
-            z-index: 2147483647 !important; /* 최대 z-index */
-            color: black !important;
-            pointer-events: auto !important;
-            display: block !important;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5) !important; /* 시각적 확인용 */
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            z-index: 99999;
+            color: black;
+            pointer-events: auto;
         }
         #followListSection {
             margin-top: 20px;
@@ -85,7 +66,7 @@
         }
     `);
 
-    // API 호출 함수 (GM_xmlhttpRequest 사용)
+    // API 호출 함수
     function fetchApi(url) {
         return new Promise((resolve, reject) => {
             console.log('CHIZZK.follow-notification :: Fetching API from', url);
@@ -211,7 +192,7 @@
                     timeout: 15000,
                     onclick: () => {
                         console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
-                        window.open(channelLink, '_blank');
+                        window.open(channelLink, '_self');
                     }
                 });
                 console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
@@ -266,11 +247,10 @@
         }
     }
 
-    // 설정 UI (Whale에서 렌더링 보장)
+    // 설정 UI 생성
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
         if (document.readyState !== 'complete') {
-            console.log('CHIZZK.follow-notification :: Waiting for DOMContentLoaded');
             await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
         }
 
@@ -299,11 +279,6 @@
         `;
         document.body.appendChild(settingsContainer);
         console.log('CHIZZK.follow-notification :: Settings container added to DOM');
-
-        // 렌더링 강제 확인
-        settingsContainer.style.display = 'block';
-        console.log('CHIZZK.follow-notification :: Settings container visibility set to block');
-        console.log('CHIZZK.follow-notification :: Container computed style:', window.getComputedStyle(settingsContainer).display);
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
@@ -355,14 +330,33 @@
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
+    // 메뉴 등록
+    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
+            createSettingsUI();
+        });
+        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    } else {
+        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
+    }
+
+    // 실행 중 여부 확인 (중복 방지)
+    if (GM_getValue(runningKey, false)) {
+        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
+        return;
+    }
+    GM_setValue(runningKey, true);
+
     // 초기화 및 실행
     console.log('CHIZZK.follow-notification (Background) :: Starting...');
-    
+
     // 설치 후 즉시 설정 UI 호출 (최초 설치 시에만)
     if (!GM_getValue('isInstalled', false)) {
         console.log('CHIZZK.follow-notification :: First installation detected, opening settings UI');
         await createSettingsUI();
-        GM_setValue('isInstalled', true); // 설치 플래그 설정
+        GM_setValue('isInstalled', true);
     }
 
     await startBackgroundCheck();
