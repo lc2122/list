@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
-// @match        https://*.naver.com/* 
+// @match        https://*.naver.com/*
 // @match        https://lc2122.github.io/lolcast/*
 // @match        https://lolcast.kr/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
@@ -25,26 +25,7 @@
     const runningKey = 'chzzk_follow_notification_running';
     const heartbeatInterval = 60 * 1000; // 60초마다 체크
 
-    // 메뉴 등록 (항상 실행)
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
-            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
-            createSettingsUI();
-        });
-        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
-    } else {
-        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
-    }
-
-    // 실행 중 여부 확인 (중복 방지 개선)
-    if (GM_getValue(runningKey, false)) {
-        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
-        return;
-    }
-    GM_setValue(runningKey, true);
-
-    // 설정값 초기화
+    // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
     let settingReferNoti = GM_getValue('setReferNoti', false);
     let currentFollowingStatus = GM_getValue(statusKey, {});
@@ -85,7 +66,7 @@
         }
     `);
 
-    // API 호출 함수 (GM_xmlhttpRequest 사용)
+    // API 호출 함수
     function fetchApi(url) {
         return new Promise((resolve, reject) => {
             console.log('CHIZZK.follow-notification :: Fetching API from', url);
@@ -266,7 +247,7 @@
         }
     }
 
-    // 설정 UI (팔로우 리스트 포함, 방송 중인 채널 맨 위로 정렬)
+    // 설정 UI 생성
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
         if (document.readyState !== 'complete') {
@@ -349,14 +330,33 @@
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
+    // 메뉴 등록
+    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('설정 및 팔로우 리스트', () => {
+            console.log('CHIZZK.follow-notification :: Menu clicked, opening settings UI');
+            createSettingsUI();
+        });
+        console.log('CHIZZK.follow-notification :: Menu command registered successfully');
+    } else {
+        console.error('CHIZZK.follow-notification :: GM_registerMenuCommand is not available');
+    }
+
+    // 실행 중 여부 확인 (중복 방지)
+    if (GM_getValue(runningKey, false)) {
+        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
+        return;
+    }
+    GM_setValue(runningKey, true);
+
     // 초기화 및 실행
     console.log('CHIZZK.follow-notification (Background) :: Starting...');
-    
+
     // 설치 후 즉시 설정 UI 호출 (최초 설치 시에만)
     if (!GM_getValue('isInstalled', false)) {
         console.log('CHIZZK.follow-notification :: First installation detected, opening settings UI');
         await createSettingsUI();
-        GM_setValue('isInstalled', true); // 설치 플래그 설정
+        GM_setValue('isInstalled', true);
     }
 
     await startBackgroundCheck();
