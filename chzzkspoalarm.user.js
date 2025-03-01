@@ -17,7 +17,6 @@
 // @run-at       document-start
 // ==/UserScript==
 
-
 (async function() {
     'use strict';
 
@@ -54,8 +53,23 @@
     const m3u8BaseUrl = 'https://ch${videoNumber}-nlivecdn.spotvnow.co.kr/ch${videoNumber}/decr/medialist_14173921312004482655_hls.m3u8';
     const m3u8ChannelRange = Array.from({ length: 40 }, (_, i) => i + 1); // 1부터 40까지 채널 번호
 
-    // 스타일 추가
+    // 스타일 추가 (Whale 호환성 강화)
     GM_addStyle(`
+        #settingUI {
+            position: fixed !important;
+            top: 10px !important;
+            left: 10px !important;
+            background-color: white !important;
+            padding: 20px !important;
+            border: 2px solid #333 !important;
+            z-index: 2147483647 !important; /* 최대 z-index */
+            color: black !important;
+            pointer-events: auto !important;
+            display: block !important;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5) !important; /* 시각적 확인용 */
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
         #followListSection {
             margin-top: 20px;
             max-height: 300px;
@@ -97,6 +111,7 @@
                             console.log('CHIZZK.follow-notification :: HEAD response status:', response.status);
                             resolve(response.status === 200);
                         } else {
+                            console.log('CHIZZK.follow-notification :: Raw response:', response.responseText.substring(0, 500));
                             const data = JSON.parse(response.responseText);
                             console.log('CHIZZK.follow-notification - fetchApi response :: ', data);
                             resolve(data);
@@ -265,7 +280,6 @@
             console.log('CHIZZK.follow-notification :: Live Chzzk channels:', liveChzzkChannels);
             console.log('CHIZZK.follow-notification :: Live M3U8 channels:', liveM3U8Channels);
 
-            // 모든 채널을 기본 상태로 설정
             const updatedStatus = {};
             allChzzkChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
@@ -280,7 +294,6 @@
                 console.log(`CHIZZK.follow-notification :: Initialized Chzzk Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
             });
 
-            // 치지직 방송 중인 채널 업데이트
             liveChzzkChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
@@ -295,7 +308,6 @@
                 }
             });
 
-            // M3U8 라이브 채널 업데이트
             liveM3U8Channels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
@@ -315,7 +327,6 @@
                 };
             });
 
-            // 상태 업데이트 및 저장
             currentFollowingStatus = updatedStatus;
             GM_setValue(statusKey, currentFollowingStatus);
         } catch (e) {
@@ -323,9 +334,14 @@
         }
     }
 
-    // 설정 UI (치지직 + M3U8 통합)
+    // 설정 UI (치지직 + M3U8 통합, Whale 호환성 강화)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
+        if (document.readyState !== 'complete') {
+            console.log('CHIZZK.follow-notification :: Waiting for DOMContentLoaded');
+            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+        }
+
         const existingUI = document.getElementById('settingUI');
         if (existingUI) {
             console.log('CHIZZK.follow-notification :: Existing UI found, removing it');
@@ -334,8 +350,6 @@
 
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
-        settingsContainer.style = 'position: fixed; top: 10px; left: 10px; background-color: white; padding: 20px; border: 1px solid #ddd; z-index: 10000; color: black;';
-
         settingsContainer.innerHTML = `
             <div>
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
@@ -352,6 +366,12 @@
             </div>
         `;
         document.body.appendChild(settingsContainer);
+        console.log('CHIZZK.follow-notification :: Settings container added to DOM');
+
+        // 렌더링 강제 확인
+        settingsContainer.style.display = 'block';
+        console.log('CHIZZK.follow-notification :: Settings container visibility set to block');
+        console.log('CHIZZK.follow-notification :: Container computed style:', window.getComputedStyle(settingsContainer).display);
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
@@ -391,11 +411,11 @@
                 });
             }
         } catch (e) {
+            console.error('CHIZZK.follow-notification :: Error loading follow list:', e);
             followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
         }
 
         const saveButton = settingsContainer.querySelector('#saveSettings');
-        saveButton.removeEventListener('click', saveSettingsHandler);
         saveButton.addEventListener('click', saveSettingsHandler);
 
         function saveSettingsHandler() {
@@ -409,17 +429,31 @@
     }
 
     // 주기적 실행
-    function startBackgroundCheck() {
-        fetchLiveStatus();
+    async function startBackgroundCheck() {
+        await fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
     // 초기화 및 실행
     console.log('CHIZZK.follow-notification (Background) :: Starting...');
+    
+    // 설치 후 즉시 설정 UI 호출 (최초 설치 시에만)
+    if (!GM_getValue('isInstalled', false)) {
+        console.log('CHIZZK.follow-notification :: First installation detected, opening settings UI');
+        await createSettingsUI();
+        GM_setValue('isInstalled', true); // 설치 플래그 설정
+    }
+
     await startBackgroundCheck();
 
     // 스크립트 종료 시 실행 중 플래그 해제
     window.addEventListener('unload', () => {
         GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on unload');
+    });
+
+    window.addEventListener('beforeunload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on beforeunload');
     });
 })();
