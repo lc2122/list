@@ -25,16 +25,16 @@ https://greasyfork.org/en/scripts/505975-lolcast-macro
 <br>자동으로 채팅창이 꺼지며 넓은화면 실행 + 롤캐 좌우 사이드바 설정
 <br>https://greasyfork.org/en/scripts/527302-chzzk-theater-mode-lolcast-sidebar-control
 
-<br>
+<br><br>
 4. 치지직 로그인
 <br>해당 링크에서 설명대로 설치
    <br>https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_sign_in_iframe
 
-<br>
+<br><br>
 5. 치지직 재생 슬라이더
 <br>해당 링크에서 설명대로 설치<br>
 https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Live_Progress_Slider
 
-<br>
+<br><br>
 6. 치지직 탭전환시 영상 꺼짐 방지<br>
 https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Always_Awake
