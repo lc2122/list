@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
-// @version      1.20
+// @version      1.21
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        http://*/*
 // @match        https://*/*
@@ -15,7 +15,7 @@
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
-(function() {
+(async function() {
     'use strict';
 
     // 설정값 초기화
@@ -188,7 +188,7 @@
             const channelImageUrl = data.channelImageUrl || 'https://ssl.pstatic.net/cmstatic/nng/img/img_anonymous_square_gray_opacity2x.png?type=f120_120_na';
             const channelName = data.channelName;
             const channelId = data.channelId;
-            const channelLink = `${channelId}`;
+            const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
 
             if (settingBrowserNoti) {
                 console.log('CHIZZK.follow-notification :: Triggering notification for', channelName);
@@ -199,7 +199,7 @@
                     timeout: 15000,
                     onclick: () => {
                         console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
-                        window.open('https://lolcast.kr/#/player/chzzk/' + channelLink, '_blank');
+                        window.open(channelLink, '_blank');
                     }
                 });
                 console.log('CHIZZK.follow-notification :: Notification triggered successfully for', channelName);
@@ -220,21 +220,19 @@
             console.log('CHIZZK.follow-notification :: All channels:', allChannels);
             console.log('CHIZZK.follow-notification :: Live channels:', liveChannels);
 
-            // 모든 채널을 기본 상태로 설정
             const updatedStatus = {};
             allChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
                 updatedStatus[channel.channelId] = {
                     openLive: false,
-                    notified: prevOpenLive ? wasNotified : false, // 방송이 꺼지면 notified 리셋
+                    notified: prevOpenLive ? wasNotified : false,
                     channelName: channel.channelName,
                     channelImageUrl: channel.channelImageUrl
                 };
                 console.log(`CHIZZK.follow-notification :: Initialized Channel ${channel.channelId} - prevOpenLive: ${prevOpenLive}, openLive: false, notified: ${updatedStatus[channel.channelId].notified}`);
             });
 
-            // 방송 중인 채널로 상태 업데이트
             liveChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
@@ -249,7 +247,6 @@
                 }
             });
 
-            // 상태 업데이트 및 저장
             currentFollowingStatus = updatedStatus;
             GM_setValue(statusKey, currentFollowingStatus);
         } catch (e) {
@@ -299,11 +296,10 @@
             if (allChannels.length === 0) {
                 followListSection.innerHTML += '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
             } else {
-                // 방송 중인 채널을 맨 위로 정렬
                 allChannels.sort((a, b) => {
                     const aIsLive = liveChannelIds.has(a.channelId);
                     const bIsLive = liveChannelIds.has(b.channelId);
-                    return bIsLive - aIsLive; // true가 맨 위로 오도록 역순 정렬
+                    return bIsLive - aIsLive;
                 });
 
                 allChannels.forEach(channel => {
@@ -319,8 +315,7 @@
         }
 
         const saveButton = settingsContainer.querySelector('#saveSettings');
-        // 기존 리스너 제거 후 새로 추가
-        saveButton.removeEventListener('click', saveSettingsHandler); // 중복 방지
+        saveButton.removeEventListener('click', saveSettingsHandler);
         saveButton.addEventListener('click', saveSettingsHandler);
 
         function saveSettingsHandler() {
@@ -334,14 +329,22 @@
     }
 
     // 주기적 실행
-    function startBackgroundCheck() {
-        fetchLiveStatus();
+    async function startBackgroundCheck() {
+        await fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
     // 초기화 및 실행
     console.log('CHIZZK.follow-notification (Background) :: Starting...');
-    startBackgroundCheck();
+    
+    // 설치 후 즉시 설정 UI 호출 (최초 설치 시에만)
+    if (!GM_getValue('isInstalled', false)) {
+        console.log('CHIZZK.follow-notification :: First installation detected, opening settings UI');
+        await createSettingsUI();
+        GM_setValue('isInstalled', true); // 설치 플래그 설정
+    }
+
+    await startBackgroundCheck();
 
     // 스크립트 종료 시 실행 중 플래그 해제
     window.addEventListener('unload', () => {
