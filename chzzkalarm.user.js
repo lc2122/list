@@ -69,7 +69,7 @@
             accent-color: #1a73e8;
         }
         #settingUI .setting-option label {
-            font-size: 14px;
+            font-size: 16px;
             color: #555;
             flex-grow: 1;
         }
@@ -80,7 +80,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             transition: background-color 0.2s;
             width: 100%;
         }
