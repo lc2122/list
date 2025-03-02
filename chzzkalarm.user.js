@@ -32,43 +32,107 @@
     let currentFollowingStatus = GM_getValue(statusKey, {});
     let cachedAllChannels = null;
 
-    // 스타일 추가
+    // 스타일 추가 (비주얼 개선)
     GM_addStyle(`
         #settingUI {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: white;
+            top: 20px;
+            left: 20px;
+            background-color: #ffffff;
             padding: 20px;
-            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 99999;
-            color: black;
+            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             pointer-events: auto;
+            width: 320px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+        #settingUI h2 {
+            margin: 0 0 15px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a73e8;
+        }
+        #settingUI .setting-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        #settingUI .setting-option input[type="checkbox"] {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+            accent-color: #1a73e8;
+        }
+        #settingUI .setting-option label {
+            font-size: 14px;
+            color: #555;
+            flex-grow: 1;
+        }
+        #settingUI #saveSettings {
+            background-color: #1a73e8;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        #settingUI #saveSettings:hover {
+            background-color: #1557b0;
         }
         #followListSection {
             margin-top: 20px;
             max-height: 300px;
             overflow-y: auto;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid #e0e0e0;
             padding-top: 10px;
         }
+        #followListSection h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #1a73e8;
+        }
         .followItem {
-            padding: 5px;
-            border-bottom: 1px solid #eee;
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 15px;
+            color: #333;
+            transition: background-color 0.2s;
         }
         .followItem.live {
             background-color: #e0ffe0;
         }
+        .followItem:hover {
+            background-color: #f5f5f5;
+        }
         .followItem a {
             text-decoration: none;
-            color: #007bff;
+            color: #1a73e8;
         }
         .followItem a:hover {
             text-decoration: underline;
         }
+        #followListSection::-webkit-scrollbar {
+            width: 8px;
+        }
+        #followListSection::-webkit-scrollbar-thumb {
+            background-color: #c0c0c0;
+            border-radius: 4px;
+        }
+        #followListSection::-webkit-scrollbar-track {
+            background-color: #f0f0f0;
+        }
     `);
 
-    // API 호출 함수 (재시도 로직 추가, 로그 제거)
+    // API 호출 함수 (재시도 로직 추가)
     function fetchApi(url, retries = 2, delay = 1000) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -232,7 +296,7 @@
         }
     }
 
-    // 설정 UI 생성 (시청자 수 표시 포함)
+    // 설정 UI 생성 (비주얼 개선)
     async function createSettingsUI() {
         if (document.readyState !== 'complete') await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
 
@@ -242,15 +306,16 @@
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
         settingsContainer.innerHTML = `
-            <div>
+            <h2>치지직 알림 설정</h2>
+            <div class="setting-option">
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
-                <label for="followsetting_browser_noti">브라우저 알림기능 사용</label>
+                <label for="followsetting_browser_noti">브라우저 알림 사용</label>
             </div>
-            <div>
+            <div class="setting-option">
                 <input type="checkbox" id="followsetting_refer_noti" ${settingReferNoti ? 'checked' : ''}>
-                <label for="followsetting_refer_noti">치지직 자체 알림설정을 켠 채널만 알림받기</label>
+                <label for="followsetting_refer_noti">치지직 알림 킨 채널만 가능</label>
             </div>
-            <button id="saveSettings" style="margin-top: 10px;">저장</button>
+            <button id="saveSettings">저장</button>
             <div id="followListSection">
                 <h3>팔로우 리스트</h3>
                 <p>로딩 중...</p>
@@ -276,8 +341,8 @@
                     const item = document.createElement('div');
                     item.className = `followItem ${isLive ? 'live' : ''}`;
                     item.innerHTML = `
-                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - 
-                        ${isLive ? '방송 중' : '방송 종료'} 
+                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> -
+                        ${isLive ? '방송 중' : '방송 종료'}
                         ${isLive ? `(시청자: ${viewerCount})` : ''}
                     `;
                     followListSection.appendChild(item);
