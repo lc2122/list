@@ -313,7 +313,7 @@
             </div>
             <div class="setting-option">
                 <input type="checkbox" id="followsetting_refer_noti" ${settingReferNoti ? 'checked' : ''}>
-                <label for="followsetting_refer_noti">치지직 알림 킨 채널만 가능</label>
+                <label for="followsetting_refer_noti">치지직 알림 킨 채널만 뜨게 설정</label>
             </div>
             <button id="saveSettings">저장</button>
             <div id="followListSection">
