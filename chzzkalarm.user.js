@@ -3,6 +3,7 @@
 // @namespace    lolcast chzzk alarm
 // @version      1.21
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
+// @match        https://*.naver.com/*
 // @match        https://lc2122.github.io/lolcast/*
 // @match        https://lolcast.kr/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
@@ -22,16 +23,14 @@
     // 상태 저장 키
     const statusKey = 'chzzk_follow_notification_status';
     const runningKey = 'chzzk_follow_notification_running';
-    const allChannelsKey = 'chzzk_all_channels_cache'; // 캐시 키
-    const positionKey = 'followListButtonPosition';
-    const heartbeatInterval = 60 * 1000; // 60초마다 체크
-    const cacheTTL = 24 * 60 * 60 * 1000; // 캐시 유효 시간 (24시간)
+    const allChannelsKey = 'chzzk_all_channels_cache';
+    const heartbeatInterval = 60 * 1000;
+    const cacheTTL = 24 * 60 * 60 * 1000;
 
     // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
     let settingReferNoti = GM_getValue('setReferNoti', false);
     let currentFollowingStatus = GM_getValue(statusKey, {});
-    let isFixed = GM_getValue('isFollowListFixed', false);
     let cachedAllChannels = null;
 
     // 스타일 추가
@@ -47,33 +46,8 @@
             color: black;
             pointer-events: auto;
         }
-        #followListButton {
-            position: ${isFixed ? 'fixed' : 'absolute'};
-            background-color: #007bff;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 99998;
-        }
-        #followListButton:hover {
-            background-color: #0056b3;
-        }
-        #followListUI {
-            position: fixed;
-            background-color: white;
-            padding: 20px;
-            border: 1px solid #ddd;
-            z-index: 99999;
-            color: black;
-            pointer-events: auto;
-            display: none;
-            max-height: 400px;
-            overflow-y: auto;
-        }
         #followListSection {
-            margin-top: 10px;
+            margin-top: 20px;
             max-height: 300px;
             overflow-y: auto;
             border-top: 1px solid #ddd;
@@ -95,10 +69,9 @@
         }
     `);
 
-    // API 호출 함수 (재시도 로직 추가)
+    // API 호출 함수 (재시도 로직 추가, 로그 제거)
     function fetchApi(url, retries = 2, delay = 1000) {
         return new Promise((resolve, reject) => {
-            console.log('CHIZZK.follow-notification :: Fetching API from', url);
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: url,
@@ -110,19 +83,15 @@
                 onload: function(response) {
                     try {
                         const data = JSON.parse(response.responseText);
-                        console.log('CHIZZK.follow-notification - fetchApi response :: ', data);
                         resolve(data);
                     } catch (e) {
-                        console.error('CHIZZK.follow-notification :: Failed to parse API response', e);
                         reject(e);
                     }
                 },
                 onerror: function(error) {
                     if (retries > 0) {
-                        console.log(`Retrying API call (${retries} left)...`);
                         setTimeout(() => fetchApi(url, retries - 1, delay * 2).then(resolve, reject), delay);
                     } else {
-                        console.error('CHIZZK.follow-notification - fetchApi error :: ', error);
                         reject(error);
                     }
                 }
@@ -134,7 +103,6 @@
     async function fetchAllFollowing(forceRefresh = false) {
         const cachedData = GM_getValue(allChannelsKey);
         if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < cacheTTL) {
-            console.log('CHIZZK.follow-notification :: Using cached all channels');
             return cachedData.channels;
         }
 
@@ -145,11 +113,8 @@
             const followList = data.content?.data || data.content?.followingList || [];
 
             if (!followList.length) {
-                console.warn('CHIZZK.follow-notification - fetchAllFollowing :: No channels found in response');
                 return [];
             }
-
-            console.log('CHIZZK.follow-notification - fetchAllFollowing :: Found all channels', followList.length);
 
             followList.forEach(channel => {
                 const detailData = {
@@ -161,11 +126,9 @@
                 allChannelIds.push(detailData);
             });
 
-            // 캐시에 저장
             GM_setValue(allChannelsKey, { channels: allChannelIds, timestamp: Date.now() });
             return allChannelIds;
         } catch (e) {
-            console.error('CHIZZK.follow-notification - fetchAllFollowing :: ', e);
             return [];
         }
     }
@@ -178,11 +141,8 @@
             const liveChannelIds = [];
 
             if (!data.content || !data.content.followingList) {
-                console.error('CHIZZK.follow-notification - fetchLiveFollowing :: Invalid API response', data);
                 return [];
             }
-
-            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live channels', data.content.followingList.length);
 
             data.content.followingList.forEach(channel => {
                 const notificationSetting = channel.channel.personalData?.following?.notification;
@@ -204,7 +164,6 @@
 
             return liveChannelIds;
         } catch (e) {
-            console.error('CHIZZK.follow-notification - fetchLiveFollowing :: ', e);
             return [];
         }
     }
@@ -214,8 +173,6 @@
         try {
             if (!data) return;
 
-            console.log('CHIZZK.follow-notification - onairNotificationPopup data :: ', data);
-
             const liveTitle = data.liveTitle ? data.liveTitle.substring(0, 28).concat('..') : '방송 중';
             const channelImageUrl = data.channelImageUrl || 'https://ssl.pstatic.net/cmstatic/nng/img/img_anonymous_square_gray_opacity2x.png?type=f120_120_na';
             const channelName = data.channelName;
@@ -223,36 +180,28 @@
             const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
 
             if (settingBrowserNoti) {
-                console.log('CHIZZK.follow-notification :: Triggering notification for', channelName);
                 GM_notification({
                     title: channelName,
                     image: channelImageUrl,
                     text: liveTitle,
                     timeout: 15000,
-                    onclick: () => {
-                        console.log('CHIZZK.follow-notification :: Notification clicked, opening', channelLink);
-                        window.open(channelLink, '_self');
-                    }
+                    onclick: () => window.open(channelLink, '_self')
                 });
             }
         } catch (e) {
-            console.error('CHIZZK.follow-notification - onairNotificationPopup error :: ', e);
+            // 오류 무시
         }
     }
 
     // 방송 상태 체크 (최적화)
     async function fetchLiveStatus() {
         try {
-            console.log('CHIZZK.follow-notification :: Checking live status...');
             const [liveChannels] = await Promise.all([
                 fetchLiveFollowing(),
-                cachedAllChannels ? Promise.resolve(cachedAllChannels) : fetchAllFollowing() // 캐시 있으면 재사용
+                cachedAllChannels ? Promise.resolve(cachedAllChannels) : fetchAllFollowing()
             ]);
-            const allChannels = cachedAllChannels || await fetchAllFollowing(); // 캐시 없으면 새로 가져옴
+            const allChannels = cachedAllChannels || await fetchAllFollowing();
             cachedAllChannels = allChannels;
-
-            console.log('CHIZZK.follow-notification :: All channels:', allChannels);
-            console.log('CHIZZK.follow-notification :: Live channels:', liveChannels);
 
             const updatedStatus = {};
             allChannels.forEach(channel => {
@@ -269,7 +218,6 @@
             liveChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
-
                 if (prevOpenLive === false && channel.openLive) {
                     onairNotificationPopup(channel);
                     updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
@@ -281,11 +229,11 @@
             currentFollowingStatus = updatedStatus;
             GM_setValue(statusKey, currentFollowingStatus);
         } catch (e) {
-            console.error('CHIZZK.follow-notification - fetchLiveStatus error :: ', e);
+            // 오류 무시
         }
     }
 
-    // 설정 UI 생성 (팔로우 리스트 제외)
+    // 설정 UI 생성 (시청자 수 표시 포함)
     async function createSettingsUI() {
         if (document.readyState !== 'complete') await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
 
@@ -304,8 +252,41 @@
                 <label for="followsetting_refer_noti">치지직 자체 알림설정을 켠 채널만 알림받기</label>
             </div>
             <button id="saveSettings" style="margin-top: 10px;">저장</button>
+            <div id="followListSection">
+                <h3>팔로우 리스트</h3>
+                <p>로딩 중...</p>
+            </div>
         `;
         document.body.appendChild(settingsContainer);
+
+        const followListSection = settingsContainer.querySelector('#followListSection');
+        try {
+            const allChannels = await fetchAllFollowing(true);
+            const liveChannels = await fetchLiveFollowing();
+
+            const liveChannelIds = new Set(liveChannels.map(ch => ch.channelId));
+            followListSection.innerHTML = '<h3>팔로우 리스트</h3>';
+            if (allChannels.length === 0) {
+                followListSection.innerHTML += '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
+            } else {
+                allChannels.sort((a, b) => liveChannelIds.has(b.channelId) - liveChannelIds.has(a.channelId));
+                allChannels.forEach(channel => {
+                    const isLive = liveChannelIds.has(channel.channelId);
+                    const liveChannel = liveChannels.find(ch => ch.channelId === channel.channelId);
+                    const viewerCount = isLive ? (liveChannel?.viewerCount || '알 수 없음') : 'N/A';
+                    const item = document.createElement('div');
+                    item.className = `followItem ${isLive ? 'live' : ''}`;
+                    item.innerHTML = `
+                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - 
+                        ${isLive ? '방송 중' : '방송 종료'} 
+                        ${isLive ? `(시청자: ${viewerCount})` : ''}
+                    `;
+                    followListSection.appendChild(item);
+                });
+            }
+        } catch (e) {
+            followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
+        }
 
         const saveButton = settingsContainer.querySelector('#saveSettings');
         saveButton.addEventListener('click', () => {
@@ -317,150 +298,27 @@
         });
     }
 
-    // 팔로우 리스트 UI 생성 및 버튼 처리
-    async function createFollowListUI() {
-        if (document.readyState !== 'complete') await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
-
-        let button = document.getElementById('followListButton');
-        if (!button) {
-            button = document.createElement('button');
-            button.id = 'followListButton';
-            button.textContent = '팔로우 리스트';
-            document.body.appendChild(button);
-
-            const savedPosition = GM_getValue(positionKey, { top: '50px', left: '50px' });
-            button.style.top = savedPosition.top;
-            button.style.left = savedPosition.left;
-
-            let isDragging = false;
-            let currentX = parseInt(savedPosition.left) || 50;
-            let currentY = parseInt(savedPosition.top) || 50;
-            let initialX, initialY;
-
-            button.addEventListener('mousedown', (e) => {
-                if (!isFixed) {
-                    isDragging = true;
-                    initialX = e.clientX - currentX;
-                    initialY = e.clientY - currentY;
-                }
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    e.preventDefault();
-                    currentX = e.clientX - initialX;
-                    currentY = e.clientY - initialY;
-                    button.style.left = `${currentX}px`;
-                    button.style.top = `${currentY}px`;
-                }
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    GM_setValue(positionKey, { top: button.style.top, left: button.style.left });
-                }
-            });
-        }
-
-        let listUI = document.getElementById('followListUI');
-        if (!listUI) {
-            listUI = document.createElement('div');
-            listUI.id = 'followListUI';
-            document.body.appendChild(listUI);
-        }
-
-        button.addEventListener('click', async () => {
-            if (listUI.style.display === 'block') {
-                listUI.style.display = 'none';
-            } else {
-                listUI.style.top = `${parseInt(button.style.top) + button.offsetHeight}px`;
-                listUI.style.left = button.style.left;
-
-                listUI.innerHTML = `
-                    <div>
-                        <h3>팔로우 리스트</h3>
-                        <label><input type="checkbox" id="fixButton" ${isFixed ? 'checked' : ''}> 버튼 고정</label>
-                        <button id="closeFollowList" style="margin-left: 10px;">닫기</button>
-                        <div id="followListSection">
-                            <p>로딩 중...</p>
-                        </div>
-                    </div>
-                `;
-                listUI.style.display = 'block';
-
-                const followListSection = listUI.querySelector('#followListSection');
-                try {
-                    const allChannels = await fetchAllFollowing(true); // UI 새로고침 시 강제 업데이트
-                    const liveChannels = await fetchLiveFollowing();
-
-                    const liveChannelIds = new Set(liveChannels.map(ch => ch.channelId));
-                    followListSection.innerHTML = '';
-                    if (allChannels.length === 0) {
-                        followListSection.innerHTML = '<p>팔로우한 채널이 없습니다. 로그인 상태를 확인하세요.</p>';
-                    } else {
-                        allChannels.sort((a, b) => liveChannelIds.has(b.channelId) - liveChannelIds.has(a.channelId));
-                        allChannels.forEach(channel => {
-                            const isLive = liveChannelIds.has(channel.channelId);
-                            const liveChannel = liveChannels.find(ch => ch.channelId === channel.channelId);
-                            const viewerCount = isLive ? (liveChannel?.viewerCount || '알 수 없음') : 'N/A';
-                            const item = document.createElement('div');
-                            item.className = `followItem ${isLive ? 'live' : ''}`;
-                            item.innerHTML = `
-                                <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - 
-                                ${isLive ? '방송 중' : '방송 종료'} 
-                                ${isLive ? `(시청자: ${viewerCount})` : ''}
-                            `;
-                            followListSection.appendChild(item);
-                        });
-                    }
-                } catch (e) {
-                    console.error('CHIZZK.follow-notification :: Error loading follow list:', e);
-                    followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
-                }
-
-                listUI.querySelector('#closeFollowList').addEventListener('click', () => {
-                    listUI.style.display = 'none';
-                });
-
-                const fixCheckbox = listUI.querySelector('#fixButton');
-                fixCheckbox.addEventListener('change', () => {
-                    isFixed = fixCheckbox.checked;
-                    GM_setValue('isFollowListFixed', isFixed);
-                    button.style.position = isFixed ? 'fixed' : 'absolute';
-                });
-            }
-        });
-    }
-
     // 주기적 실행
     async function startBackgroundCheck() {
-        cachedAllChannels = await fetchAllFollowing(); // 최초 캐시 초기화
+        cachedAllChannels = await fetchAllFollowing();
         await fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
     // 메뉴 등록
-    console.log('CHIZZK.follow-notification :: Attempting to register menu command');
     if (typeof GM_registerMenuCommand === 'function') {
-        GM_registerMenuCommand('설정', createSettingsUI);
-        GM_registerMenuCommand('팔로우 리스트', createFollowListUI);
+        GM_registerMenuCommand('설정 및 팔로우 리스트', createSettingsUI);
     }
 
     // 실행 중 여부 확인 (중복 방지)
-    if (GM_getValue(runningKey, false)) {
-        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
-        return;
-    }
+    if (GM_getValue(runningKey, false)) return;
     GM_setValue(runningKey, true);
 
     // 초기화 및 실행
-    console.log('CHIZZK.follow-notification (Background) :: Starting...');
     if (!GM_getValue('isInstalled', false)) {
         await createSettingsUI();
         GM_setValue('isInstalled', true);
     }
-    await createFollowListUI();
     await startBackgroundCheck();
 
     // 스크립트 종료 시 플래그 해제
