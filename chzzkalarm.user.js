@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
-// @version      1.22
+// @version      1.23
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        https://*.naver.com/*
 // @match        https://lc2122.github.io/lolcast/*
@@ -23,9 +23,9 @@
     // 상태 저장 키
     const statusKey = 'chzzk_follow_notification_status';
     const runningKey = 'chzzk_follow_notification_running';
-    const allChannelsKey = 'chzzk_all_channels_cache'; // 캐시 키
-    const heartbeatInterval = 60 * 1000; // 60초마다 체크
-    const cacheTTL = 24 * 60 * 60 * 1000; // 캐시 유효 시간 (24시간)
+    const allChannelsKey = 'chzzk_all_channels_cache';
+    const heartbeatInterval = 60 * 1000;
+    const cacheTTL = 24 * 60 * 60 * 1000;
 
     // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
@@ -33,41 +33,125 @@
     let currentFollowingStatus = GM_getValue(statusKey, {});
     let cachedAllChannels = null;
 
-    // 스타일 추가
-    GM_addStyle(`
-        #settingUI {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: white;
-            padding: 20px;
-            border: 1px solid #ddd;
-            z-index: 99999;
-            color: black;
-            pointer-events: auto;
-        }
-        #followListSection {
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-            border-top: 1px solid #ddd;
-            padding-top: 10px;
-        }
-        .followItem {
-            padding: 5px;
-            border-bottom: 1px solid #eee;
-        }
-        .followItem.live {
-            background-color: #e0ffe0;
-        }
-        .followItem a {
-            text-decoration: none;
-            color: #007bff;
-        }
-        .followItem a:hover {
-            text-decoration: underline;
-        }
-    `);
+    // 현재 URL 확인
+    const currentUrl = window.location.href;
+    const isLolcastSite = currentUrl.includes('lc2122.github.io/lolcast') || currentUrl.includes('lolcast.kr');
+
+    // 스타일 추가 (lolcast 사이트에서만 적용)
+    if (isLolcastSite) {
+        GM_addStyle(`
+            #settingUI {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                background-color: #fff;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+                z-index: 99999;
+                color: #333;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                pointer-events: auto;
+                width: 340px;
+                max-height: 85vh;
+                overflow-y: auto;
+                border: 1px solid #e8ecef;
+            }
+            #settingUI h2 {
+                margin: 0 0 15px;
+                font-size: 20px;
+                font-weight: 600;
+                color: #2c5282;
+            }
+            #settingUI .setting-option {
+                display: flex;
+                align-items: center;
+                margin-bottom: 20px;
+                padding: 8px;
+                border-radius: 6px;
+                background-color: #f7fafc;
+                transition: background-color 0.2s;
+            }
+            #settingUI .setting-option:hover {
+                background-color: #edf2f7;
+            }
+            #settingUI .setting-option input[type="checkbox"] {
+                margin-right: 12px;
+                width: 18px;
+                height: 18px;
+                accent-color: #2c5282;
+                cursor: pointer;
+            }
+            #settingUI .setting-option label {
+                font-size: 15px;
+                color: #4a5568;
+                flex-grow: 1;
+                line-height: 1.4;
+            }
+            #settingUI #saveSettings {
+                background-color: #2c5282;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 15px;
+                font-weight: 500;
+                transition: background-color 0.2s;
+                width: 100%;
+                margin-top: 10px;
+            }
+            #settingUI #saveSettings:hover {
+                background-color: #2a4365;
+            }
+            #followListSection {
+                margin-top: 20px;
+                max-height: 320px;
+                overflow-y: auto;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 15px;
+            }
+            #followListSection h3 {
+                margin: 0 0 10px;
+                font-size: 16px;
+                font-weight: 500;
+                color: #2c5282;
+            }
+            .followItem {
+                padding: 10px;
+                border-bottom: 1px solid #edf2f7;
+                font-size: 14px;
+                color: #4a5568;
+                transition: background-color 0.2s;
+            }
+            .followItem.live {
+                background-color: #f0fff4;
+                color: #276749;
+            }
+            .followItem:hover {
+                background-color: #f7fafc;
+            }
+            .followItem a {
+                text-decoration: none;
+                color: #2b6cb0;
+                font-weight: 500;
+            }
+            .followItem a:hover {
+                text-decoration: underline;
+                color: #2c5282;
+            }
+            #followListSection::-webkit-scrollbar {
+                width: 6px;
+            }
+            #followListSection::-webkit-scrollbar-thumb {
+                background-color: #a0aec0;
+                border-radius: 3px;
+            }
+            #followListSection::-webkit-scrollbar-track {
+                background-color: #edf2f7;
+            }
+        `);
+    }
 
     // API 호출 함수 (재시도 로직 추가)
     function fetchApi(url, retries = 2, delay = 1000) {
@@ -213,7 +297,7 @@
             console.log('CHIZZK.follow-notification :: Checking live status...');
             const [liveChannels] = await Promise.all([
                 fetchLiveFollowing(),
-                cachedAllChannels ? Promise.resolve(cachedAllChannels) : fetchAllFollowing() // 캐시 있으면 재사용
+                cachedAllChannels ? Promise.resolve(cachedAllChannels) : fetchAllFollowing()
             ]);
             const allChannels = cachedAllChannels || await fetchAllFollowing();
             cachedAllChannels = allChannels;
@@ -236,7 +320,9 @@
             liveChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                console.log(`Channel ${channel.channelName}: prev=${prevOpenLive}, now=${channel.openLive}, notified=${wasNotified}`);
                 if (prevOpenLive === false && channel.openLive) {
+                    console.log(`New live detected: ${channel.channelName}`);
                     onairNotificationPopup(channel);
                     updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
                 } else {
@@ -251,8 +337,10 @@
         }
     }
 
-    // 설정 UI 생성 (시청자 수 표시 포함)
+    // 설정 UI 생성 (lolcast 사이트에서만 실행)
     async function createSettingsUI() {
+        if (!isLolcastSite) return; // naver.com에서는 UI 생성하지 않음
+
         if (document.readyState !== 'complete') await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
 
         const existingUI = document.getElementById('settingUI');
@@ -261,15 +349,16 @@
         const settingsContainer = document.createElement('div');
         settingsContainer.id = 'settingUI';
         settingsContainer.innerHTML = `
-            <div>
+            <h2>치지직 알림 설정</h2>
+            <div class="setting-option">
                 <input type="checkbox" id="followsetting_browser_noti" ${settingBrowserNoti ? 'checked' : ''}>
-                <label for="followsetting_browser_noti">브라우저 알림기능 사용</label>
+                <label for="followsetting_browser_noti">브라우저 알림 사용</label>
             </div>
-            <div>
+            <div class="setting-option">
                 <input type="checkbox" id="followsetting_refer_noti" ${settingReferNoti ? 'checked' : ''}>
-                <label for="followsetting_refer_noti">치지직 자체 알림설정을 켠 채널만 알림받기</label>
+                <label for="followsetting_refer_noti">치지직 알림 킨 채널만 가능</label>
             </div>
-            <button id="saveSettings" style="margin-top: 10px;">저장</button>
+            <button id="saveSettings">저장</button>
             <div id="followListSection">
                 <h3>팔로우 리스트</h3>
                 <p>로딩 중...</p>
@@ -279,7 +368,7 @@
 
         const followListSection = settingsContainer.querySelector('#followListSection');
         try {
-            const allChannels = await fetchAllFollowing(true); // UI 새로고침 시 강제 업데이트
+            const allChannels = await fetchAllFollowing(true);
             const liveChannels = await fetchLiveFollowing();
 
             const liveChannelIds = new Set(liveChannels.map(ch => ch.channelId));
@@ -319,14 +408,14 @@
 
     // 주기적 실행
     async function startBackgroundCheck() {
-        cachedAllChannels = await fetchAllFollowing(); // 최초 캐시 초기화
+        cachedAllChannels = await fetchAllFollowing();
         await fetchLiveStatus();
         setInterval(fetchLiveStatus, heartbeatInterval);
     }
 
-    // 메뉴 등록
+    // 메뉴 등록 (lolcast 사이트에서만)
     console.log('CHIZZK.follow-notification :: Attempting to register menu command');
-    if (typeof GM_registerMenuCommand === 'function') {
+    if (typeof GM_registerMenuCommand === 'function' && isLolcastSite) {
         GM_registerMenuCommand('설정 및 팔로우 리스트', createSettingsUI);
     }
 
@@ -339,7 +428,7 @@
 
     // 초기화 및 실행
     console.log('CHIZZK.follow-notification (Background) :: Starting...');
-    if (!GM_getValue('isInstalled', false)) {
+    if (!GM_getValue('isInstalled', false) && isLolcastSite) {
         await createSettingsUI();
         GM_setValue('isInstalled', true);
     }
