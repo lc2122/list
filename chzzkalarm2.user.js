@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         lolcast chzzk alarm
+// @name         lolcast chzzk alarm2
 // @namespace    http://tampermonkey.net/
 // @version      1.20
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
@@ -130,7 +130,7 @@
         }
     }
 
-    // 방송 중인 팔로우 채널 가져오기
+    // 방송 중인 팔로우 채널 가져오기 (시청자 수 포함)
     async function fetchLiveFollowing() {
         try {
             const apiUrl = 'https://api.chzzk.naver.com/service/v1/channels/followings/live';
@@ -143,6 +143,7 @@
             }
 
             console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Found live channels', data.content.followingList.length);
+            console.log('CHIZZK.follow-notification - fetchLiveFollowing :: Full API response:', data); // 전체 응답 확인
 
             data.content.followingList.forEach(channel => {
                 const notificationSetting = channel.channel.personalData?.following?.notification;
@@ -151,7 +152,8 @@
                     channelName: channel.channel.channelName,
                     channelImageUrl: channel.channel.channelImageUrl,
                     openLive: channel.streamer.openLive,
-                    liveTitle: channel.liveInfo.liveTitle
+                    liveTitle: channel.liveInfo.liveTitle,
+                    viewerCount: channel.liveInfo?.concurrentUserCount || 0 // 시청자 수
                 };
 
                 if (settingReferNoti) {
@@ -247,7 +249,7 @@
         }
     }
 
-    // 설정 UI 생성
+    // 설정 UI 생성 (시청자 수 표시 포함)
     async function createSettingsUI() {
         console.log('CHIZZK.follow-notification :: createSettingsUI called');
         if (document.readyState !== 'complete') {
@@ -300,9 +302,15 @@
 
                 allChannels.forEach(channel => {
                     const isLive = liveChannelIds.has(channel.channelId);
+                    const liveChannel = liveChannels.find(ch => ch.channelId === channel.channelId);
+                    const viewerCount = isLive ? (liveChannel?.viewerCount || '알 수 없음') : 'N/A';
                     const item = document.createElement('div');
                     item.className = `followItem ${isLive ? 'live' : ''}`;
-                    item.innerHTML = `<a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - ${isLive ? '방송 중' : '방송 종료'}`;
+                    item.innerHTML = `
+                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - 
+                        ${isLive ? '방송 중' : '방송 종료'} 
+                        ${isLive ? `(시청자: ${viewerCount})` : ''}
+                    `;
                     followListSection.appendChild(item);
                 });
             }
