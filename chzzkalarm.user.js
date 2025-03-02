@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    lolcast chzzk alarm
-// @version      1.20
+// @version      1.21
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
-// @match        https://*.naver.com/*
+// @match        https://*.naver.com/*         // 인증 쿠키를 위해 추가
 // @match        https://lc2122.github.io/lolcast/*
 // @match        https://lolcast.kr/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
@@ -70,7 +70,7 @@
             accent-color: #1a73e8;
         }
         #settingUI .setting-option label {
-            font-size: 14px;
+            font-size: 15px;
             color: #555;
             flex-grow: 1;
         }
@@ -81,7 +81,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 15px;
             transition: background-color 0.2s;
             width: 100%;
         }
@@ -104,7 +104,7 @@
         .followItem {
             padding: 8px;
             border-bottom: 1px solid #f0f0f0;
-            font-size: 13px;
+            font-size: 15px;
             color: #333;
             transition: background-color 0.2s;
         }
@@ -147,15 +147,19 @@
                 onload: function(response) {
                     try {
                         const data = JSON.parse(response.responseText);
+                        console.log('API Response:', JSON.stringify(data));
                         resolve(data);
                     } catch (e) {
+                        console.error('Parse Error:', e);
                         reject(e);
                     }
                 },
                 onerror: function(error) {
                     if (retries > 0) {
+                        console.log(`Retrying (${retries} left)...`);
                         setTimeout(() => fetchApi(url, retries - 1, delay * 2).then(resolve, reject), delay);
                     } else {
+                        console.error('Fetch Error:', error);
                         reject(error);
                     }
                 }
@@ -167,6 +171,7 @@
     async function fetchAllFollowing(forceRefresh = false) {
         const cachedData = GM_getValue(allChannelsKey);
         if (!forceRefresh && cachedData && Date.now() - cachedData.timestamp < cacheTTL) {
+            console.log('Using cached channels:', cachedData.channels.length);
             return cachedData.channels;
         }
 
@@ -177,9 +182,11 @@
             const followList = data.content?.data || data.content?.followingList || [];
 
             if (!followList.length) {
+                console.warn('No channels found');
                 return [];
             }
 
+            console.log('Fetched all channels:', followList.length);
             followList.forEach(channel => {
                 const detailData = {
                     channelId: channel.channel?.channelId || channel.channelId,
@@ -193,6 +200,7 @@
             GM_setValue(allChannelsKey, { channels: allChannelIds, timestamp: Date.now() });
             return allChannelIds;
         } catch (e) {
+            console.error('fetchAllFollowing Error:', e);
             return [];
         }
     }
@@ -205,9 +213,11 @@
             const liveChannelIds = [];
 
             if (!data.content || !data.content.followingList) {
+                console.log('Invalid live channels response');
                 return [];
             }
 
+            console.log('Fetched live channels:', data.content.followingList.length);
             data.content.followingList.forEach(channel => {
                 const notificationSetting = channel.channel.personalData?.following?.notification;
                 const detailData = {
@@ -228,6 +238,7 @@
 
             return liveChannelIds;
         } catch (e) {
+            console.error('fetchLiveFollowing Error:', e);
             return [];
         }
     }
@@ -244,6 +255,7 @@
             const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
 
             if (settingBrowserNoti) {
+                console.log(`Triggering notification for ${channelName}`);
                 GM_notification({
                     title: channelName,
                     image: channelImageUrl,
@@ -251,21 +263,27 @@
                     timeout: 15000,
                     onclick: () => window.open(channelLink, '_self')
                 });
+            } else {
+                console.log(`${channelName} live but notifications disabled`);
             }
         } catch (e) {
-            // 오류 무시
+            console.error('Notification Error:', e);
         }
     }
 
     // 방송 상태 체크 (최적화)
     async function fetchLiveStatus() {
         try {
+            console.log('Checking live status...');
             const [liveChannels] = await Promise.all([
                 fetchLiveFollowing(),
                 cachedAllChannels ? Promise.resolve(cachedAllChannels) : fetchAllFollowing()
             ]);
             const allChannels = cachedAllChannels || await fetchAllFollowing();
             cachedAllChannels = allChannels;
+
+            console.log('All channels:', allChannels.length);
+            console.log('Live channels:', liveChannels.length);
 
             const updatedStatus = {};
             allChannels.forEach(channel => {
@@ -282,7 +300,9 @@
             liveChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
+                console.log(`Channel ${channel.channelName}: prev=${prevOpenLive}, now=${channel.openLive}, notified=${wasNotified}`);
                 if (prevOpenLive === false && channel.openLive) {
+                    console.log(`New live detected: ${channel.channelName}`);
                     onairNotificationPopup(channel);
                     updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
                 } else {
@@ -293,7 +313,7 @@
             currentFollowingStatus = updatedStatus;
             GM_setValue(statusKey, currentFollowingStatus);
         } catch (e) {
-            // 오류 무시
+            console.error('fetchLiveStatus Error:', e);
         }
     }
 
@@ -314,7 +334,7 @@
             </div>
             <div class="setting-option">
                 <input type="checkbox" id="followsetting_refer_noti" ${settingReferNoti ? 'checked' : ''}>
-                <label for="followsetting_refer_noti">치지직 알림 설정 연동</label>
+                <label for="followsetting_refer_noti">치지직 알림 킨 채널만 가능</label>
             </div>
             <button id="saveSettings">저장</button>
             <div id="followListSection">
@@ -350,6 +370,7 @@
                 });
             }
         } catch (e) {
+            console.error('Error loading follow list:', e);
             followListSection.innerHTML = '<p>팔로우 리스트를 불러오는 데 실패했습니다.</p>';
         }
 
@@ -371,15 +392,20 @@
     }
 
     // 메뉴 등록
+    console.log('Registering menu command...');
     if (typeof GM_registerMenuCommand === 'function') {
         GM_registerMenuCommand('설정 및 팔로우 리스트', createSettingsUI);
     }
 
     // 실행 중 여부 확인 (중복 방지)
-    if (GM_getValue(runningKey, false)) return;
+    if (GM_getValue(runningKey, false)) {
+        console.log('Already running, exiting');
+        return;
+    }
     GM_setValue(runningKey, true);
 
     // 초기화 및 실행
+    console.log('Script starting...');
     if (!GM_getValue('isInstalled', false)) {
         await createSettingsUI();
         GM_setValue('isInstalled', true);
@@ -389,4 +415,11 @@
     // 스크립트 종료 시 플래그 해제
     window.addEventListener('unload', () => GM_setValue(runningKey, false));
     window.addEventListener('beforeunload', () => GM_setValue(runningKey, false));
+
+    // 알림 권한 요청
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            console.log('Notification permission:', permission);
+        });
+    }
 })();
