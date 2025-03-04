@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
-// @version      1.23
+// @version      1.24
 // @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
 // @match        https://*.naver.com/*
 // @match        https://lc2122.github.io/lolcast/*
@@ -278,6 +278,7 @@
             const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
 
             if (settingBrowserNoti) {
+                console.log(`CHIZZK.follow-notification :: Sending notification for ${channelName}`);
                 GM_notification({
                     title: channelName,
                     image: channelImageUrl,
@@ -285,13 +286,15 @@
                     timeout: 15000,
                     onclick: () => window.open(channelLink, '_self')
                 });
+            } else {
+                console.log('CHIZZK.follow-notification :: Browser notifications disabled');
             }
         } catch (e) {
             console.error('CHIZZK.follow-notification - onairNotificationPopup error :: ', e);
         }
     }
 
-    // 방송 상태 체크 (최적화)
+    // 방송 상태 체크 (디버깅 로그 추가)
     async function fetchLiveStatus() {
         try {
             console.log('CHIZZK.follow-notification :: Checking live status...');
@@ -304,6 +307,7 @@
 
             console.log('CHIZZK.follow-notification :: All channels:', allChannels);
             console.log('CHIZZK.follow-notification :: Live channels:', liveChannels);
+            console.log('CHIZZK.follow-notification :: Notification enabled:', settingBrowserNoti);
 
             const updatedStatus = {};
             allChannels.forEach(channel => {
@@ -320,9 +324,10 @@
             liveChannels.forEach(channel => {
                 const prevOpenLive = currentFollowingStatus[channel.channelId]?.openLive || false;
                 const wasNotified = currentFollowingStatus[channel.channelId]?.notified || false;
-                console.log(`Channel ${channel.channelName}: prev=${prevOpenLive}, now=${channel.openLive}, notified=${wasNotified}`);
+                console.log(`CHIZZK.follow-notification :: Channel ${channel.channelName} - prevOpenLive: ${prevOpenLive}, openLive: ${channel.openLive}, notified: ${wasNotified}`);
+
                 if (prevOpenLive === false && channel.openLive) {
-                    console.log(`New live detected: ${channel.channelName}`);
+                    console.log(`CHIZZK.follow-notification :: New live detected: ${channel.channelName}`);
                     onairNotificationPopup(channel);
                     updatedStatus[channel.channelId] = { openLive: true, notified: true, channelName: channel.channelName, channelImageUrl: channel.channelImageUrl };
                 } else {
@@ -339,7 +344,7 @@
 
     // 설정 UI 생성 (lolcast 사이트에서만 실행)
     async function createSettingsUI() {
-        if (!isLolcastSite) return; // naver.com에서는 UI 생성하지 않음
+        if (!isLolcastSite) return;
 
         if (document.readyState !== 'complete') await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
 
@@ -419,11 +424,9 @@
         GM_registerMenuCommand('설정 및 팔로우 리스트', createSettingsUI);
     }
 
-    // 실행 중 여부 확인 (중복 방지)
-    if (GM_getValue(runningKey, false)) {
-        console.log('CHIZZK.follow-notification :: Already running in another instance, exiting');
-        return;
-    }
+    // 실행 중 여부 확인 (테스트를 위해 초기화)
+    console.log('CHIZZK.follow-notification :: Checking running status, current value:', GM_getValue(runningKey, false));
+    GM_setValue(runningKey, false); // 강제로 초기화
     GM_setValue(runningKey, true);
 
     // 초기화 및 실행
@@ -435,6 +438,12 @@
     await startBackgroundCheck();
 
     // 스크립트 종료 시 플래그 해제
-    window.addEventListener('unload', () => GM_setValue(runningKey, false));
-    window.addEventListener('beforeunload', () => GM_setValue(runningKey, false));
+    window.addEventListener('unload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on unload');
+    });
+    window.addEventListener('beforeunload', () => {
+        GM_setValue(runningKey, false);
+        console.log('CHIZZK.follow-notification :: Running flag reset on beforeunload');
+    });
 })();
