@@ -2,7 +2,7 @@
 // @name         lolcast chzzk alarm
 // @namespace    http://tampermonkey.net/
 // @version      1.24
-// @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용)
+// @description  네이버 치지직 팔로우 방송알림 (페이지 접속 없이 백그라운드 동작, lolcast 링크 사용, 소리 포함)
 // @match        https://*.naver.com/*
 // @match        https://lc2122.github.io/lolcast/*
 // @match        https://lolcast.kr/*
@@ -30,6 +30,7 @@
     // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
     let settingReferNoti = GM_getValue('setReferNoti', false);
+    let settingSoundNoti = GM_getValue('setSoundNoti', true); // 소리 설정 추가
     let currentFollowingStatus = GM_getValue(statusKey, {});
     let cachedAllChannels = null;
 
@@ -266,7 +267,7 @@
         }
     }
 
-    // 방송 시작 알림
+    // 방송 시작 알림 (소리 추가)
     function onairNotificationPopup(data) {
         try {
             if (!data) return;
@@ -277,6 +278,7 @@
             const channelId = data.channelId;
             const channelLink = `https://lolcast.kr/#/player/chzzk/${channelId}`;
 
+            // 브라우저 알림
             if (settingBrowserNoti) {
                 console.log(`CHIZZK.follow-notification :: Sending notification for ${channelName}`);
                 GM_notification({
@@ -288,6 +290,15 @@
                 });
             } else {
                 console.log('CHIZZK.follow-notification :: Browser notifications disabled');
+            }
+
+            // 소리 알림
+            if (settingSoundNoti) {
+                console.log(`CHIZZK.follow-notification :: Playing sound for ${channelName}`);
+                const audio = new Audio('https://proxy.notificationsounds.com/free-jingles-and-logos/light-hearted-message-tone/download/file-sounds-1351-light-hearted.mp3');
+                audio.play().catch(e => console.error('CHIZZK.follow-notification :: Sound playback failed', e));
+            } else {
+                console.log('CHIZZK.follow-notification :: Sound notifications disabled');
             }
         } catch (e) {
             console.error('CHIZZK.follow-notification - onairNotificationPopup error :: ', e);
@@ -308,6 +319,7 @@
             console.log('CHIZZK.follow-notification :: All channels:', allChannels);
             console.log('CHIZZK.follow-notification :: Live channels:', liveChannels);
             console.log('CHIZZK.follow-notification :: Notification enabled:', settingBrowserNoti);
+            console.log('CHIZZK.follow-notification :: Sound enabled:', settingSoundNoti);
 
             const updatedStatus = {};
             allChannels.forEach(channel => {
@@ -342,7 +354,7 @@
         }
     }
 
-    // 설정 UI 생성 (lolcast 사이트에서만 실행)
+    // 설정 UI 생성 (소리 옵션 추가)
     async function createSettingsUI() {
         if (!isLolcastSite) return;
 
@@ -362,6 +374,10 @@
             <div class="setting-option">
                 <input type="checkbox" id="followsetting_refer_noti" ${settingReferNoti ? 'checked' : ''}>
                 <label for="followsetting_refer_noti">치지직 알림 킨 채널만 가능</label>
+            </div>
+            <div class="setting-option">
+                <input type="checkbox" id="followsetting_sound_noti" ${settingSoundNoti ? 'checked' : ''}>
+                <label for="followsetting_sound_noti">소리 알림 사용</label>
             </div>
             <button id="saveSettings">저장</button>
             <div id="followListSection">
@@ -405,8 +421,10 @@
         saveButton.addEventListener('click', () => {
             settingBrowserNoti = document.getElementById('followsetting_browser_noti').checked;
             settingReferNoti = document.getElementById('followsetting_refer_noti').checked;
+            settingSoundNoti = document.getElementById('followsetting_sound_noti').checked;
             GM_setValue('setBrowserNoti', settingBrowserNoti);
             GM_setValue('setReferNoti', settingReferNoti);
+            GM_setValue('setSoundNoti', settingSoundNoti);
             settingsContainer.remove();
         });
     }
