@@ -20,8 +20,7 @@
 (async function() {
     'use strict';
 
-    // 상태 저장 키
-    const statusKey = 'chzzk_follow_notification_status';
+    // 상태 저장 키 (탭별 고유)
     const runningKey = 'chzzk_follow_notification_running';
     const allChannelsKey = 'chzzk_all_channels_cache';
     const heartbeatInterval = 60 * 1000;
@@ -29,7 +28,8 @@
 
     // 탭별 고유 ID 생성
     const tabId = Math.random().toString(36).substr(2, 9);
-    console.log(`CHIZZK.follow-notification :: Tab ID: ${tabId}`);
+    const statusKey = `chzzk_follow_notification_status_${tabId}`;
+    console.log(`CHIZZK.follow-notification [Tab ${tabId}] :: Status key: ${statusKey}`);
 
     // 전역 변수 초기화
     let settingBrowserNoti = GM_getValue('setBrowserNoti', true);
@@ -299,7 +299,7 @@
             // 소리 알림
             if (settingSoundNoti) {
                 console.log(`CHIZZK.follow-notification [Tab ${tabId}] :: Playing sound for ${channelName}`);
-                const audio = new Audio('https://proxy.notificationsounds.com/standard-ringtones/quest-605/download/file-sounds-1146-quest.mp3');
+                const audio = new Audio('https://proxy.notificationsounds.com/free-jingles-and-logos/light-hearted-message-tone/download/file-sounds-1351-light-hearted.mp3');
                 audio.play().catch(e => console.error(`CHIZZK.follow-notification [Tab ${tabId}] :: Sound playback failed`, e));
             } else {
                 console.log(`CHIZZK.follow-notification [Tab ${tabId}] :: Sound notifications disabled`);
@@ -357,6 +357,10 @@
             currentFollowingStatus = updatedStatus;
             GM_setValue(statusKey, currentFollowingStatus);
             console.log(`CHIZZK.follow-notification [Tab ${tabId}] :: Saved currentFollowingStatus:`, currentFollowingStatus);
+
+            // 저장 확인
+            const savedStatus = GM_getValue(statusKey, {});
+            console.log(`CHIZZK.follow-notification [Tab ${tabId}] :: Verified saved status:`, savedStatus);
         } catch (e) {
             console.error(`CHIZZK.follow-notification [Tab ${tabId}] - fetchLiveStatus error :: `, e);
         }
@@ -413,8 +417,8 @@
                     const item = document.createElement('div');
                     item.className = `followItem ${isLive ? 'live' : ''}`;
                     item.innerHTML = `
-                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> - 
-                        ${isLive ? '방송 중' : '방송 종료'} 
+                        <a href="https://lolcast.kr/#/player/chzzk/${channel.channelId}" target="_self">${channel.channelName}</a> -
+                        ${isLive ? '방송 중' : '방송 종료'}
                         ${isLive ? `(시청자: ${viewerCount})` : ''}
                     `;
                     followListSection.appendChild(item);
