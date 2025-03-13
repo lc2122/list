@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  롤캐 방송 목록 (속도 최적화, 중복 제거, 썸네일 문제 해결, 첫 로딩 개선, 오프라인 제외, X 버튼 이미지, Flow 버튼 이미지로 변경, 개선 적용)
+// @version      0.2
+// @description  롤캐 방송 목록 (다크모드 지원, 모드 전환 버튼 리스트 열릴 때만 표시, 배경 꼬임 방지, 다크모드 호버 밝게)
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
@@ -11,20 +11,95 @@
 (function() {
     'use strict';
 
+    // 다크모드 상태 로컬 스토리지에서 불러오기 (기본값: 시스템 설정 따라감)
+    let isDarkMode = localStorage.getItem('lolcastDarkMode') === 'true' ||
+                     (localStorage.getItem('lolcastDarkMode') === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
     const styles = `
-        #lolcastPanel { position: fixed; top: 55px; right: 293px; background: #E8E7E3; z-index: 10000; font-family: Arial, sans-serif; display: flex; flex-direction: column; border-radius: 3px; }
+        #lolcastPanel {
+            position: fixed;
+            top: 55px;
+            right: 293px;
+            background: ${isDarkMode ? '#2a2a2a' : '#E8E7E3'};
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            border-radius: 3px;
+            color: ${isDarkMode ? '#ffffff' : '#000000'};
+        }
         #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
-        #lolcastButton { background: #E8E7E3; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+        #lolcastButton {
+            background: ${isDarkMode ? '#3a3a3a' : '#E8E7E3'};
+            border: none;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         #lolcastButton:hover { background: #0056b3; }
         #lolcastButton img { width: 24px; height: 24px; }
-        #closeButton { position: fixed; top: 58px; right: 296px; background: #ff4d4d; border: none; cursor: pointer; width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; }
+        #closeButton {
+            position: fixed;
+            top: 58px;
+            right: 296px;
+            background: #ff4d4d;
+            border: none;
+            cursor: pointer;
+            width: 23px;
+            height: 23px;
+            display: none;
+            padding: 0;
+            border-radius: 50%;
+        }
         #closeButton:hover { background: #cc0000; }
         #closeButton img { width: 11px; height: 11px; display: block; margin: auto; }
-        #flowButton { background: #E8E7E3; border: none; cursor: pointer; width: 40px; height: 28px; display: none; padding: 0; }
+        #flowButton {
+            background: ${isDarkMode ? '#3a3a3a' : '#E8E7E3'};
+            border: none;
+            cursor: pointer;
+            width: 40px;
+            height: 28px;
+            display: none;
+            padding: 0;
+        }
         #flowButton img { width: 40px; height: 28px; display: block; margin: auto; }
-        #streamList { background: #E8E7E3; margin-top: 0; display: none; max-height: 400px; overflow-y: auto; padding: 5px; width: 500px; border-radius: 0 0 3px 3px; }
-        .streamItem { margin: 2px 0; padding: 5px; background: rgba(255, 255, 255, 0.9); border-radius: 3px; cursor: pointer; display: flex; align-items: center; }
-        .streamItem:hover { background: #e9ecef; }
+        #modeToggleButton {
+            background: ${isDarkMode ? '#3a3a3a' : '#E8E7E3'};
+            border: none;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            display: none; /* 평소엔 숨김 */
+            align-items: center;
+            justify-content: center;
+            margin-left: 5px;
+        }
+        #modeToggleButton:hover { background: #0056b3; }
+        #modeToggleButton img { width: 24px; height: 24px; }
+        #streamList {
+            background: ${isDarkMode ? '#2a2a2a' : '#E8E7E3'};
+            margin-top: 0;
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 5px;
+            width: 500px;
+            border-radius: 0 0 3px 3px;
+            color: ${isDarkMode ? '#ffffff' : '#000000'};
+        }
+        .streamItem {
+            margin: 2px 0;
+            padding: 5px;
+            background: ${isDarkMode ? 'rgba(80, 80, 80, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .streamItem:hover { background: ${isDarkMode ? '#7a7a7a' : '#e9ecef'}; } /* 다크모드 호버 더 밝게 */
         .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
     `;
 
@@ -78,6 +153,15 @@
     flowButton.appendChild(flowImg);
     buttonContainer.appendChild(flowButton);
 
+    const modeToggleButton = document.createElement('button');
+    modeToggleButton.id = 'modeToggleButton';
+    modeToggleButton.title = '다크/라이트 모드 전환';
+    const modeImg = document.createElement('img');
+    modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png'; // 다크: 태양, 라이트: 달
+    modeImg.alt = 'Mode Toggle';
+    modeToggleButton.appendChild(modeImg);
+    buttonContainer.appendChild(modeToggleButton);
+
     const list = document.createElement('div');
     list.id = 'streamList';
     panel.appendChild(list);
@@ -108,6 +192,11 @@
                 const platform = item.dataset.platform;
                 const streamerId = item.dataset.id;
                 window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
+                // 스트리머 클릭 시 자동 닫기
+                list.style.display = 'none';
+                closeButton.style.display = 'none';
+                flowButton.style.display = 'none';
+                modeToggleButton.style.display = 'none';
             });
         });
     }
@@ -157,12 +246,11 @@
     }
 
     async function fetchChzzkLive(channelId) {
-
         const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
         try {
             const text = await fetchWithTimeout(liveStatusUrl);
             const liveData = JSON.parse(text);
-            console.log(`CHZZK API 응답 (${channelId}):`, liveData); 
+            console.log(`CHZZK API 응답 (${channelId}):`, liveData);
             const live = liveData.content;
             if (!live || live.status !== 'OPEN') {
                 liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
@@ -256,6 +344,7 @@
         list.style.display = 'block';
         closeButton.style.display = 'block';
         flowButton.style.display = 'block';
+        modeToggleButton.style.display = 'block'; // 리스트 열릴 때만 표시
         list.innerHTML = '로딩 중<span id="loadingDots"></span>';
 
         const dots = document.getElementById('loadingDots');
@@ -302,6 +391,35 @@
         });
     }
 
+    function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        localStorage.setItem('lolcastDarkMode', isDarkMode);
+        modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png'; // 다크: 태양, 라이트: 달
+        updateStyles();
+    }
+
+    function updateStyles() {
+        const darkBackground = isDarkMode ? '#2a2a2a' : '#E8E7E3';
+        const darkButtonBackground = isDarkMode ? '#3a3a3a' : '#E8E7E3';
+        const textColor = isDarkMode ? '#ffffff' : '#000000';
+        const itemBackground = isDarkMode ? 'rgba(80, 80, 80, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+        const hoverBackground = isDarkMode ? '#7a7a7a' : '#e9ecef';
+
+        panel.style.background = darkBackground;
+        panel.style.color = textColor;
+        button.style.background = darkButtonBackground;
+        flowButton.style.background = darkButtonBackground;
+        modeToggleButton.style.background = darkButtonBackground;
+        list.style.background = darkBackground;
+        list.style.color = textColor;
+        document.querySelectorAll('.streamItem').forEach(item => {
+            item.style.background = itemBackground;
+            item.style.color = textColor; // 텍스트 색상도 동기화
+            item.onmouseover = () => item.style.background = hoverBackground;
+            item.onmouseout = () => item.style.background = itemBackground;
+        });
+    }
+
     button.addEventListener('click', () => {
         console.log('Button clicked!');
         updateStreamList();
@@ -312,10 +430,19 @@
         list.style.display = 'none';
         closeButton.style.display = 'none';
         flowButton.style.display = 'none';
+        modeToggleButton.style.display = 'none'; // 닫을 때 숨김
     });
 
     flowButton.addEventListener('click', () => {
         console.log('Flow button clicked!');
         window.location.hash = '#/player/flow';
     });
+
+    modeToggleButton.addEventListener('click', () => {
+        console.log('Mode toggle clicked!');
+        toggleDarkMode();
+    });
+
+    // 초기 스타일 적용
+    updateStyles();
 })();
