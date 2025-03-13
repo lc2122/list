@@ -6,46 +6,38 @@
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
-// ==/UserScript==
 
 (function() {
     'use strict';
 
-    // UI 스타일 정의
-    const styles = `
-        #lolcastPanel { position: fixed; top: 0px; right: 293px; background: rgba(255, 255, 255, 0.9); z-index: 10000; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
-        #lolcastButton { padding: 5px; background: #E8E7E3; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
-        #lolcastButton:hover { background: #0056b3; }
-        #lolcastButton img { width: 24px; height: 24px; }
-        #streamList { margin-top: 10px; display: none; max-height: 400px; overflow-y: auto; }
-        .streamItem { margin: 5px 0; padding: 5px; background: rgba(255, 255, 255, 0.9); border-radius: 3px; cursor: pointer; display: flex; align-items: center; }
-        .streamItem:hover { background: #e9ecef; }
-        .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
-    `;
+const styles = `
+    #lolcastPanel { position: fixed; top: 0px; right: 293px; background: #E8E7E3; z-index: 10000; font-family: Arial, sans-serif; display: flex; flex-direction: column; border-radius: 3px; }
+    #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
+    #lolcastButton { background: #E8E7E3; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+    #lolcastButton:hover { background: #0056b3; }
+    #lolcastButton img { width: 24px; height: 24px; }
+    #closeButton { position: fixed; top: 3px; right: 296px; background: #ff4d4d; border: none; cursor: pointer; width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; } /* 원형으로 변경 */
+    #closeButton:hover { background: #cc0000; }
+    #closeButton img { width: 11px; height: 11px; display: block; margin: auto; }
+    #flowButton { background: #E8E7E3; border: none; cursor: pointer; width: 40px; height: 28px; display: none; padding: 0; }
+    #flowButton img { width: 40px; height: 28px; display: block; margin: auto; }
+    #streamList { background: #E8E7E3; margin-top: 0; display: none; max-height: 400px; overflow-y: auto; padding: 5px; width: 500px; border-radius: 0 0 3px 3px; }
+    .streamItem { margin: 2px 0; padding: 5px; background: rgba(255, 255, 255, 0.7); border-radius: 3px; cursor: pointer; display: flex; align-items: center; }
+    .streamItem:hover { background: #e9ecef; }
+    .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
+`;
 
-    // 제외할 스트리머 목록
     const excludedStreamers = ['riotgames', 'gamesdonequick', '호진LEE'];
-
-    // 하드코딩된 치지직 채널 ID 목록
     const chzzkChannelIds = ['181a3baebe508d3b5fa5d9fe4d6b5241', 'be243c7cbfb8d4e28777eedc43e28181', '26722002e8651b504a1abee300545fd8',
                              '447451c85ed61ab9abb2c7a1f3e255bd', 'ef86feb3dd91c1916bf1302297b68dec', '34a2bd4f5988e37693e94306f0bfe57f',
                              'b70ec4738c99441a62672fe4fb6edbe2', '60791fdee51b6885bc83793de93e899f', '0e3bf03cd3e8e13070f698a795167b36',
                              'd6c101790f8ce022be88307814b0d205', 'd88a21503d2b84545026aa502111abd7', '13bfa7b04126a4edf3f46d584e3d4e7f',
                              '0d027498b18371674fac3ed17247e6b8'];
-
-    // 하드코딩된 유튜브 채널 정보
-    const youtubeChannel = {
-        id: 'UCw1DsweY9b2AKGjV4kGJP1A',
-        name: 'Unknown YouTube Channel',
-        platform: 'youtube'
-    };
-
-    // 캐시 관리
+    const youtubeChannel = { id: 'UCw1DsweY9b2AKGjV4kGJP1A', name: 'LCK', platform: 'youtube' };
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
-    const CACHE_EXPIRY = 60 * 1000; // 1분 캐시 유효 시간
+    const CACHE_EXPIRY = 5 * 60 * 1000;
 
-    // UI 요소 생성
     const panel = document.createElement('div');
     panel.id = 'lolcastPanel';
     document.body.appendChild(panel);
@@ -54,297 +46,276 @@
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
 
+    const buttonContainer = document.createElement('div');
+    buttonContainer.id = 'buttonContainer';
+    panel.appendChild(buttonContainer);
+
     const button = document.createElement('button');
     button.id = 'lolcastButton';
+    button.title = '스트림 목록 열기';
     const buttonImg = document.createElement('img');
     buttonImg.src = 'https://images.icon-icons.com/3478/PNG/512/checklist_list_orderlist_order_icon_219982.png';
     buttonImg.alt = 'Stream List';
     button.appendChild(buttonImg);
-    panel.appendChild(button);
+    buttonContainer.appendChild(button);
+
+    const closeButton = document.createElement('button');
+    closeButton.id = 'closeButton';
+    closeButton.title = '목록 닫기';
+    const closeImg = document.createElement('img');
+    closeImg.src = 'https://cdn-icons-png.flaticon.com/512/1828/1828778.png';
+    closeImg.alt = 'Close';
+    closeButton.appendChild(closeImg);
+    buttonContainer.appendChild(closeButton);
+
+    const flowButton = document.createElement('button');
+    flowButton.id = 'flowButton';
+    flowButton.title = 'Flow 플레이어로 이동';
+    const flowImg = document.createElement('img');
+    flowImg.src = 'https://i.imgur.com/NIaln4m.png';
+    flowImg.alt = 'Flow';
+    flowButton.appendChild(flowImg);
+    buttonContainer.appendChild(flowButton);
 
     const list = document.createElement('div');
     list.id = 'streamList';
     panel.appendChild(list);
 
-    // 캐시 확인 및 업데이트
     function isCacheValid(cacheEntry) {
         return cacheEntry && Date.now() - cacheEntry.timestamp < CACHE_EXPIRY;
     }
 
-    // 스트림 항목 추가 함수
-    function addStreamItem(stream) {
+    function createStreamItemHTML(stream) {
         if (!stream.id) {
             console.error('Missing ID for stream:', stream);
-            return;
+            return '';
         }
-        const item = document.createElement('div');
-        item.className = 'streamItem';
-        item.innerHTML = `
-            <img src="${stream.image}" class="thumbnail" alt="Thumbnail">
-            ${stream.streamer} (${stream.from}): ${stream.title} - ${stream.viewers}명
+        return `
+            <div class="streamItem" data-platform="${stream.from}" data-id="${stream.id}">
+                <img src="${stream.image}" class="thumbnail" alt="Thumbnail">
+                ${stream.streamer} (${stream.from}): ${stream.title} - ${stream.viewers}명
+            </div>
         `;
-        item.addEventListener('click', () => {
-            const platform = stream.from;
-            const streamerId = stream.id;
-            window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
-        });
-        list.appendChild(item);
     }
 
-    // 기본 스트림 데이터 가져오기 (dostream)
-    function fetchStreamList() {
-        const apiUrl = 'https://www.dostream.com/dev/stream_list.php';
-        return new Promise((resolve) => {
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: apiUrl,
-                onload: function(response) {
-                    const text = response.responseText;
-                    if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
-                        const streams = JSON.parse(text);
-                        const mappedStreams = streams.map(stream => ({
-                            title: stream.title || '라이브 방송 중',
-                            from: stream.from || 'afreeca',
-                            image: stream.image || 'https://via.placeholder.com/240x180',
-                            streamer: stream.streamer || 'Unknown',
-                            viewers: stream.viewers || 'N/A',
-                            url: stream.url || '',
-                            id: stream.url ? stream.url.split('/')[2] : stream.streamer
-                        }));
-                        resolve(mappedStreams);
-                    } else {
-                        console.error('Invalid JSON response from dostream');
-                        resolve([]);
-                    }
-                },
-                onerror: () => {
-                    console.error('Error fetching stream list from dostream');
-                    resolve([]);
-                }
+    function updateStreamListDOM(streams) {
+        const uniqueStreams = Array.from(new Map(streams.map(stream => [stream.id, stream])).values());
+        const html = uniqueStreams.map(createStreamItemHTML).join('');
+        list.innerHTML = html || '라이브 스트림이 없습니다.';
+        list.querySelectorAll('.streamItem').forEach(item => {
+            item.addEventListener('click', () => {
+                const platform = item.dataset.platform;
+                const streamerId = item.dataset.id;
+                window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
             });
         });
     }
 
-    // 치지직 라이브 데이터 가져오기 (GM_xmlhttpRequest)
-    function fetchChzzkLive(channelId) {
-        const cachedLive = liveStatusCache[channelId];
-        if (isCacheValid(cachedLive) && cachedLive.data && cachedLive.data.image !== 'https://via.placeholder.com/240x180') {
-            console.log(`Using cached data for ${channelId}:`, cachedLive.data);
-            return Promise.resolve(cachedLive.data);
-        }
-
-        const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
-        let channelName = channelNameCache[channelId];
-
-        return new Promise((resolve) => {
+    function fetchWithTimeout(url, timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            const requestId = setTimeout(() => reject(new Error('Request timed out')), timeout);
             GM_xmlhttpRequest({
                 method: "GET",
-                url: liveStatusUrl,
+                url: url,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 },
-                onload: function(response) {
-                    try {
-                        const liveData = JSON.parse(response.responseText);
-                        console.log(`CHZZK Live-Status Raw Response for ${channelId}:`, liveData);
-
-                        const live = liveData.content;
-                        if (!live || live.status !== 'OPEN') {
-                            console.log(`Channel ${channelId} is not live or no content (status: ${live?.status})`);
-                            liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
-                            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
-                            resolve(null);
-                            return;
-                        }
-
-                        if (!channelName) {
-                            GM_xmlhttpRequest({
-                                method: "GET",
-                                url: `https://api.chzzk.naver.com/service/v1/channels/${channelId}`,
-                                onload: function(channelResponse) {
-                                    const channelData = JSON.parse(channelResponse.responseText);
-                                    const channel = channelData.content;
-                                    channelName = channel.channelName || 'Unknown';
-                                    channelNameCache[channelId] = channelName;
-                                    localStorage.setItem('chzzkChannelNames', JSON.stringify(channelNameCache));
-                                    processStreamData(live, channelName, channelId, resolve);
-                                },
-                                onerror: () => {
-                                    console.error(`Failed to fetch channel data for ${channelId}`);
-                                    channelName = 'Unknown';
-                                    processStreamData(live, channelName, channelId, resolve);
-                                }
-                            });
-                        } else {
-                            processStreamData(live, channelName, channelId, resolve);
-                        }
-                    } catch (error) {
-                        console.error(`Error parsing CHZZK data for ${channelId}:`, error);
-                        resolve(null);
-                    }
+                onload: response => {
+                    clearTimeout(requestId);
+                    resolve(response.responseText);
                 },
                 onerror: () => {
-                    console.error(`Error fetching CHZZK live status for ${channelId}`);
-                    resolve(null);
+                    clearTimeout(requestId);
+                    reject(new Error('Request failed'));
                 }
             });
         });
+    }
 
-        function processStreamData(live, channelName, channelId, resolve) {
-            let streamData = {
+    async function fetchStreamList() {
+        const apiUrl = 'https://www.dostream.com/dev/stream_list.php';
+        try {
+            const text = await fetchWithTimeout(apiUrl);
+            if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
+                const streams = JSON.parse(text);
+                return streams.map(stream => ({
+                    title: stream.title || '라이브 방송 중',
+                    from: stream.from || 'afreeca',
+                    image: stream.image || 'https://via.placeholder.com/240x180',
+                    streamer: stream.streamer || 'Unknown',
+                    viewers: stream.viewers || 'N/A',
+                    url: stream.url || '',
+                    id: stream.url ? stream.url.split('/')[2] : stream.streamer
+                }));
+            }
+            throw new Error('Invalid JSON');
+        } catch (error) {
+            console.error('Error fetching dostream:', error);
+            return [];
+        }
+    }
+
+    async function fetchChzzkLive(channelId) {
+        const cachedLive = liveStatusCache[channelId];
+        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
+
+        const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
+        try {
+            const text = await fetchWithTimeout(liveStatusUrl);
+            const liveData = JSON.parse(text);
+            const live = liveData.content;
+            if (!live || live.status !== 'OPEN') {
+                liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return null;
+            }
+
+            const channelName = channelNameCache[channelId] || live.channelName || 'Unknown';
+            if (!channelNameCache[channelId]) {
+                channelNameCache[channelId] = channelName;
+                localStorage.setItem('chzzkChannelNames', JSON.stringify(channelNameCache));
+            }
+
+            let thumbnailUrl = live.liveImageUrl;
+            if (!thumbnailUrl) {
+                const channelUrl = `https://api.chzzk.naver.com/service/v1/channels/${channelId}`;
+                try {
+                    const channelText = await fetchWithTimeout(channelUrl);
+                    const channelData = JSON.parse(channelText);
+                    thumbnailUrl = channelData.content?.channelImageUrl || 'https://via.placeholder.com/240x180';
+                } catch (channelError) {
+                    console.error(`Error fetching channel data for ${channelId}:`, channelError);
+                    thumbnailUrl = 'https://via.placeholder.com/240x180';
+                }
+            }
+
+            const streamData = {
                 title: live.liveTitle || '라이브 방송 중',
                 from: 'chzzk',
-                image: live.liveImageUrl || 'https://via.placeholder.com/240x180',
+                image: thumbnailUrl,
                 streamer: channelName,
                 viewers: live.concurrentUserCount ? live.concurrentUserCount.toString() : 'N/A',
                 url: `/chzzk/${channelId}`,
                 id: channelId
             };
 
-            if (!live.liveImageUrl) {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://api.chzzk.naver.com/service/v1/channels/${channelId}`,
-                    onload: function(channelResponse) {
-                        const channelData = JSON.parse(channelResponse.responseText);
-                        const channel = channelData.content;
-                        streamData.image = channel.channelImageUrl || 'https://via.placeholder.com/240x180';
-                        finalizeStreamData(streamData, channelId, resolve);
-                    },
-                    onerror: () => {
-                        finalizeStreamData(streamData, channelId, resolve);
-                    }
-                });
-            } else {
-                finalizeStreamData(streamData, channelId, resolve);
-            }
-        }
-
-        function finalizeStreamData(streamData, channelId, resolve) {
             liveStatusCache[channelId] = { data: streamData, timestamp: Date.now() };
             localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
-            console.log(`Processed stream data for ${channelId}:`, streamData);
-            resolve(streamData);
+            return streamData;
+        } catch (error) {
+            console.error(`Error fetching CHZZK for ${channelId}:`, error);
+            return null;
         }
     }
 
-    // 유튜브 라이브 영상 ID 가져오기 (GM_xmlhttpRequest)
-    function fetchYouTubeLive(channelId) {
+    async function fetchYouTubeLive(channelId) {
         const cachedLive = liveStatusCache[channelId];
-        if (isCacheValid(cachedLive)) {
-            console.log(`Using cached data for ${channelId}:`, cachedLive.data);
-            return Promise.resolve(cachedLive.data);
-        }
+        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
 
-        const YOUTUBE_LIVE_URL = `https://www.youtube.com/channel/${channelId}/live`;
-        return new Promise((resolve) => {
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: YOUTUBE_LIVE_URL,
-                onload: function(response) {
-                    const videoIdMatch = response.responseText.match(/"videoId":"([\w-]+)"/);
-                    const isLiveNow = response.responseText.includes('"isLiveNow":true') || response.responseText.includes('"isLive":true');
-                    const liveBroadcastContentMatch = response.responseText.match(/"liveBroadcastContent":"(\w+)"/);
-                    const isLiveBroadcast = liveBroadcastContentMatch && liveBroadcastContentMatch[1] === 'live';
-                    const titleMatch = response.responseText.match(/"title":"([^"]+)"/);
-                    const thumbnailMatch = response.responseText.match(/"thumbnailUrl":"([^"]+)"/);
+        const url = `https://www.youtube.com/channel/${channelId}/live`;
+        try {
+            const text = await fetchWithTimeout(url);
+            const videoIdMatch = text.match(/"videoId":"([\w-]+)"/);
+            const isLive = text.includes('"isLiveNow":true') || text.includes('"isLive":true') || (text.match(/"liveBroadcastContent":"(\w+)"/)?.[1] === 'live');
 
-                    if (videoIdMatch && videoIdMatch[1] && (isLiveNow || isLiveBroadcast)) {
-                        const videoId = videoIdMatch[1];
-                        const title = titleMatch ? titleMatch[1] : '라이브 방송 중';
-                        const thumbnail = thumbnailMatch ? thumbnailMatch[1] : 'https://i.imgur.com/bL3GZl6.png';
+            if (videoIdMatch && videoIdMatch[1] && isLive) {
+                const videoId = videoIdMatch[1];
+                const title = text.match(/"title":"([^"]+)"/)?.[1] || '라이브 방송 중';
+                const thumbnail = text.match(/"thumbnailUrl":"([^"]+)"/)?.[1] || 'https://i.imgur.com/bL3GZl6.png';
+                const channelName = channelNameCache[channelId] || text.match(/"channelName":"([^"]+)"/)?.[1] || 'Unknown YouTube Channel';
 
-                        let channelName = channelNameCache[channelId];
-                        if (!channelName) {
-                            const channelNameMatch = response.responseText.match(/"channelName":"([^"]+)"/);
-                            channelName = channelNameMatch ? channelNameMatch[1] : 'Unknown YouTube Channel';
-                            channelNameCache[channelId] = channelName;
-                            localStorage.setItem('chzzkChannelNames', JSON.stringify(channelNameCache));
-                        }
-
-                        const streamData = {
-                            title: title,
-                            from: 'youtube',
-                            image: thumbnail,
-                            streamer: channelName,
-                            viewers: 'N/A',
-                            url: `/youtube/${videoId}`,
-                            id: videoId
-                        };
-                        liveStatusCache[channelId] = { data: streamData, timestamp: Date.now() };
-                        localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
-                        resolve(streamData);
-                    } else {
-                        liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
-                        localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
-                        resolve(null);
-                    }
-                },
-                onerror: () => {
-                    console.error(`Error fetching YouTube data for ${channelId}`);
-                    resolve(null);
+                if (!channelNameCache[channelId]) {
+                    channelNameCache[channelId] = channelName;
+                    localStorage.setItem('chzzkChannelNames', JSON.stringify(channelNameCache));
                 }
-            });
-        });
+
+                const streamData = {
+                    title: title,
+                    from: 'youtube',
+                    image: thumbnail,
+                    streamer: channelName,
+                    viewers: 'N/A',
+                    url: `/youtube/${videoId}`,
+                    id: videoId
+                };
+                liveStatusCache[channelId] = { data: streamData, timestamp: Date.now() };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return streamData;
+            }
+            liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            return null;
+        } catch (error) {
+            console.error(`Error fetching YouTube for ${channelId}:`, error);
+            return null;
+        }
     }
 
-    // 스트림 목록 업데이트 함수 (프로그레시브 로딩)
     async function updateStreamList() {
-        list.innerHTML = '로딩 중...';
+        console.log('Opening stream list...');
         list.style.display = 'block';
+        closeButton.style.display = 'block';
+        flowButton.style.display = 'block';
+        list.innerHTML = '로딩 중<span id="loadingDots"></span>';
 
-        const streams = [];
-        list.innerHTML = ''; // 초기화
+        const dots = document.getElementById('loadingDots');
+        let dotCount = 0;
+        const loadingInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            dots.textContent = '.'.repeat(dotCount);
+        }, 500);
 
-        // dostream 데이터 먼저 표시
-        fetchStreamList().then(dostreamStreams => {
-            const filteredStreams = dostreamStreams.filter(stream => !excludedStreamers.includes(stream.streamer));
-            filteredStreams.forEach(stream => {
-                streams.push(stream);
-                addStreamItem(stream);
-            });
-        }).catch(() => console.error('Failed to load dostream'));
+        const streams = new Map();
+        const promises = [];
 
-        // 치지직 데이터 프로그레시브 로딩
+        Object.values(liveStatusCache)
+            .filter(entry => isCacheValid(entry) && entry.data)
+            .forEach(entry => streams.set(entry.data.id, entry.data));
+
+        promises.push(fetchStreamList().then(dostreamStreams => {
+            dostreamStreams
+                .filter(stream => !excludedStreamers.includes(stream.streamer))
+                .forEach(stream => streams.set(stream.id, stream));
+        }));
+
         chzzkChannelIds.forEach(channelId => {
-            fetchChzzkLive(channelId).then(stream => {
-                if (stream) {
-                    streams.push(stream);
-                    addStreamItem(stream);
-                }
-            });
+            promises.push(fetchChzzkLive(channelId).then(stream => {
+                if (stream) streams.set(stream.id, stream);
+                else streams.delete(channelId);
+            }));
         });
 
-        // 유튜브 데이터
-        fetchYouTubeLive(youtubeChannel.id).then(stream => {
-            if (stream) {
-                streams.push(stream);
-                addStreamItem(stream);
-            }
-        });
+        promises.push(fetchYouTubeLive(youtubeChannel.id).then(stream => {
+            if (stream) streams.set(stream.id, stream);
+            else streams.delete(youtubeChannel.id);
+        }));
 
-        // 모든 데이터 로드 후 확인
-        Promise.all([
-            fetchStreamList(),
-            ...chzzkChannelIds.map(channelId => fetchChzzkLive(channelId)),
-            fetchYouTubeLive(youtubeChannel.id)
-        ]).then(() => {
-            if (streams.length === 0) {
-                list.innerHTML = '스트림 데이터를 가져올 수 없습니다. URL을 확인하세요.';
-            }
-            console.log('All Streams Loaded:', streams);
+        Promise.all(promises).then(() => {
+            clearInterval(loadingInterval);
+            const streamArray = [...streams.values()];
+            updateStreamListDOM(streamArray);
+            console.log('All Streams Loaded:', streamArray);
+        }).catch(error => {
+            clearInterval(loadingInterval);
+            console.error('Error updating stream list:', error);
+            list.innerHTML = '스트림 로드에 실패했습니다. 다시 시도해주세요.';
         });
     }
 
-    // 버튼 클릭 이벤트
     button.addEventListener('click', () => {
-        if (list.style.display === 'none') {
-            updateStreamList();
-        } else {
-            list.style.display = 'none';
-        }
+        console.log('Button clicked!');
+        updateStreamList();
     });
 
-    // 캐시 강제 갱신 (최초 실행 시)
-    localStorage.removeItem('liveStatusCache');
+    closeButton.addEventListener('click', () => {
+        console.log('Close button clicked!');
+        list.style.display = 'none';
+        closeButton.style.display = 'none';
+        flowButton.style.display = 'none';
+    });
+
+    flowButton.addEventListener('click', () => {
+        console.log('Flow button clicked!');
+        window.location.hash = '#/player/flow';
+    });
 })();
