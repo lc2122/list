@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  롤캐 방송 목록
+// @version      0.20
+// @description  롤캐 방송 목록 (속도 최적화, 중복 제거, 썸네일 문제 해결, 첫 로딩 개선, 오프라인 제외, X 버튼 이미지, Flow 버튼 이미지로 변경, 개선 적용)
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
+// ==/UserScript==
 
 (function() {
     'use strict';
