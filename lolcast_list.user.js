@@ -157,15 +157,12 @@
     }
 
     async function fetchChzzkLive(channelId) {
-        // 캐시 무시하고 항상 새 데이터 가져오기 (디버깅용)
-        // const cachedLive = liveStatusCache[channelId];
-        // if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
 
         const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
         try {
             const text = await fetchWithTimeout(liveStatusUrl);
             const liveData = JSON.parse(text);
-            console.log(`CHZZK API 응답 (${channelId}):`, liveData); // API 응답 디버깅
+            console.log(`CHZZK API 응답 (${channelId}):`, liveData); 
             const live = liveData.content;
             if (!live || live.status !== 'OPEN') {
                 liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
