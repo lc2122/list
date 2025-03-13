@@ -222,7 +222,7 @@
                 const videoId = videoIdMatch[1];
                 const title = text.match(/"title":"([^"]+)"/)?.[1] || '라이브 방송 중';
                 const thumbnail = text.match(/"thumbnailUrl":"([^"]+)"/)?.[1] || 'https://i.imgur.com/bL3GZl6.png';
-                const channelName = channelNameCache[channelId] || text.match(/"channelName":"([^"]+)"/)?.[1] || 'Unknown YouTube Channel';
+                const channelName = channelNameCache[channelId] || text.match(/"channelName":"([^"]+)"/)?.[1] || 'LCK';
 
                 if (!channelNameCache[channelId]) {
                     channelNameCache[channelId] = channelName;
