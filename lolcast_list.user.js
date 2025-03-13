@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.20
+// @version      0.1
 // @description  롤캐 방송 목록 (속도 최적화, 중복 제거, 썸네일 문제 해결, 첫 로딩 개선, 오프라인 제외, X 버튼 이미지, Flow 버튼 이미지로 변경, 개선 적용)
 // @author       lc2122
 // @match        https://lolcast.kr/*
@@ -11,22 +11,22 @@
 (function() {
     'use strict';
 
-const styles = `
-    #lolcastPanel { position: fixed; top: 0px; right: 293px; background: #E8E7E3; z-index: 10000; font-family: Arial, sans-serif; display: flex; flex-direction: column; border-radius: 3px; }
-    #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
-    #lolcastButton { background: #E8E7E3; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
-    #lolcastButton:hover { background: #0056b3; }
-    #lolcastButton img { width: 24px; height: 24px; }
-    #closeButton { position: fixed; top: 3px; right: 296px; background: #ff4d4d; border: none; cursor: pointer; width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; } /* 원형으로 변경 */
-    #closeButton:hover { background: #cc0000; }
-    #closeButton img { width: 11px; height: 11px; display: block; margin: auto; }
-    #flowButton { background: #E8E7E3; border: none; cursor: pointer; width: 40px; height: 28px; display: none; padding: 0; }
-    #flowButton img { width: 40px; height: 28px; display: block; margin: auto; }
-    #streamList { background: #E8E7E3; margin-top: 0; display: none; max-height: 400px; overflow-y: auto; padding: 5px; width: 500px; border-radius: 0 0 3px 3px; }
-    .streamItem { margin: 2px 0; padding: 5px; background: rgba(255, 255, 255, 0.7); border-radius: 3px; cursor: pointer; display: flex; align-items: center; }
-    .streamItem:hover { background: #e9ecef; }
-    .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
-`;
+    const styles = `
+        #lolcastPanel { position: fixed; top: 55px; right: 293px; background: #E8E7E3; z-index: 10000; font-family: Arial, sans-serif; display: flex; flex-direction: column; border-radius: 3px; }
+        #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
+        #lolcastButton { background: #E8E7E3; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+        #lolcastButton:hover { background: #0056b3; }
+        #lolcastButton img { width: 24px; height: 24px; }
+        #closeButton { position: fixed; top: 58px; right: 296px; background: #ff4d4d; border: none; cursor: pointer; width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; }
+        #closeButton:hover { background: #cc0000; }
+        #closeButton img { width: 11px; height: 11px; display: block; margin: auto; }
+        #flowButton { background: #E8E7E3; border: none; cursor: pointer; width: 40px; height: 28px; display: none; padding: 0; }
+        #flowButton img { width: 40px; height: 28px; display: block; margin: auto; }
+        #streamList { background: #E8E7E3; margin-top: 0; display: none; max-height: 400px; overflow-y: auto; padding: 5px; width: 500px; border-radius: 0 0 3px 3px; }
+        .streamItem { margin: 2px 0; padding: 5px; background: rgba(255, 255, 255, 0.9); border-radius: 3px; cursor: pointer; display: flex; align-items: center; }
+        .streamItem:hover { background: #e9ecef; }
+        .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
+    `;
 
     const excludedStreamers = ['riotgames', 'gamesdonequick', '호진LEE'];
     const chzzkChannelIds = ['181a3baebe508d3b5fa5d9fe4d6b5241', 'be243c7cbfb8d4e28777eedc43e28181', '26722002e8651b504a1abee300545fd8',
@@ -94,7 +94,7 @@ const styles = `
         return `
             <div class="streamItem" data-platform="${stream.from}" data-id="${stream.id}">
                 <img src="${stream.image}" class="thumbnail" alt="Thumbnail">
-                ${stream.streamer} (${stream.from}): ${stream.title} - ${stream.viewers}명
+                ${stream.streamer} (${stream.from}): ${stream.title} - ${stream.viewers || '시청자 수 없음'}명
             </div>
         `;
     }
@@ -157,13 +157,15 @@ const styles = `
     }
 
     async function fetchChzzkLive(channelId) {
-        const cachedLive = liveStatusCache[channelId];
-        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
+        // 캐시 무시하고 항상 새 데이터 가져오기 (디버깅용)
+        // const cachedLive = liveStatusCache[channelId];
+        // if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
 
         const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
         try {
             const text = await fetchWithTimeout(liveStatusUrl);
             const liveData = JSON.parse(text);
+            console.log(`CHZZK API 응답 (${channelId}):`, liveData); // API 응답 디버깅
             const live = liveData.content;
             if (!live || live.status !== 'OPEN') {
                 liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
@@ -195,7 +197,7 @@ const styles = `
                 from: 'chzzk',
                 image: thumbnailUrl,
                 streamer: channelName,
-                viewers: live.concurrentUserCount ? live.concurrentUserCount.toString() : 'N/A',
+                viewers: live.concurrentUserCount !== undefined ? live.concurrentUserCount.toString() : 'N/A',
                 url: `/chzzk/${channelId}`,
                 id: channelId
             };
