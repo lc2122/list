@@ -123,7 +123,7 @@
                              'd6c101790f8ce022be88307814b0d205', 'd88a21503d2b84545026aa502111abd7', '13bfa7b04126a4edf3f46d584e3d4e7f',
                              '0d027498b18371674fac3ed17247e6b8'];
     const youtubeChannel = { id: 'UCw1DsweY9b2AKGjV4kGJP1A', name: 'LCK', platform: 'youtube' };
-    const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111', 'arinarintv', 'neiamok'];
+    const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111', 'arinarintv', 'neiamok', 'nei0001'];
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
