@@ -19,22 +19,25 @@ https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
 <br>이모티콘 등록 누르면 실행
 <br>
 https://greasyfork.org/en/scripts/505975-lolcast-macro
+<br>
+3. 롤캐 리스트 
+https://raw.githubusercontent.com/lc2122/list/main/lolcast_list.user.js
 
 <br>
-3. 치지직 넓은 화면 모드+롤캐 사이드바 설정
+4. 치지직 넓은 화면 모드+롤캐 사이드바 설정
 <br>자동으로 채팅창이 꺼지며 넓은화면 실행 + 롤캐 좌우 사이드바 설정
 <br>https://raw.githubusercontent.com/lc2122/list/main/chzzklolcast-TM.user.js
 
 <br><br>
-4. 치지직 로그인
+5. 치지직 로그인
 <br>해당 링크에서 설명대로 설치
    <br>https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_sign_in_iframe
 
 <br><br>
-5. 치지직 재생 슬라이더
+6. 치지직 재생 슬라이더
 <br>해당 링크에서 설명대로 설치<br>
 https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Live_Progress_Slider
 
 <br><br>
-6. 치지직 탭전환시 영상 꺼짐 방지<br>
+7. 치지직 탭전환시 영상 꺼짐 방지<br>
 https://github.com/nomomo/Chzzk_Scripts/tree/main/CHZZK_Always_Awake
