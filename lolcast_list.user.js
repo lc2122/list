@@ -1,11 +1,12 @@
 // ==UserScript==
-// @name         롤캐 리스트
+// @name         롤캐 리스트 with HLS Thumbnails
 // @namespace    http://tampermonkey.net/
-// @version      0.4
-// @description  롤캐 방송 목록
+// @version      0.5
+// @description  롤캐 방송 목록 with Spotvnow HLS thumbnails
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
+// @require      https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js
 // ==/UserScript==
 
 (function() {
@@ -126,8 +127,9 @@
     const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111', 'arinarintv'];
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
+    const thumbnailCache = JSON.parse(localStorage.getItem('thumbnailCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
-    const REQUEST_TIMEOUT = 4000; 
+    const REQUEST_TIMEOUT = 10000;
 
     const panel = document.createElement('div');
     panel.id = 'lolcastPanel';
@@ -161,7 +163,7 @@
 
     const kickButton = document.createElement('button');
     kickButton.id = 'kickButton';
-    kickButton.title = 'Kick 스트리머 목록';
+    kickButton.title = 'Kick 및 Spotvnow 스트리머 목록';
     kickButton.textContent = 'KICK';
     buttonContainer.appendChild(kickButton);
 
@@ -240,6 +242,56 @@
                     reject(new Error('Request failed'));
                 }
             });
+        });
+    }
+
+    async function generateHlsThumbnail(url, channelId) {
+        const cachedThumbnail = thumbnailCache[channelId];
+        if (cachedThumbnail && isCacheValid(cachedThumbnail)) {
+            console.log(`Thumbnail (${channelId}): Using cache`);
+            return cachedThumbnail.data;
+        }
+
+        return new Promise((resolve) => {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.crossOrigin = 'anonymous'; // CORS 우회 시도 (서버가 허용해야 함)
+
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+
+            video.addEventListener('loadeddata', () => {
+                video.currentTime = 1; // 1초 지점에서 캡처
+            });
+
+            video.addEventListener('seeked', () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 50;
+                canvas.height = 28;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const thumbnail = canvas.toDataURL('image/png');
+
+                thumbnailCache[channelId] = { data: thumbnail, timestamp: Date.now() };
+                localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+                console.log(`Thumbnail (${channelId}): Generated`);
+
+                hls.destroy();
+                resolve(thumbnail);
+            });
+
+            video.addEventListener('error', () => {
+                console.log(`Thumbnail (${channelId}): Failed to load HLS`);
+                hls.destroy();
+                resolve('https://via.placeholder.com/240x180'); // 실패 시 기본 이미지
+            });
+
+            setTimeout(() => {
+                if (!video.readyState) {
+                    resolve('https://via.placeholder.com/240x180'); // 타임아웃 시 기본 이미지
+                }
+            }, REQUEST_TIMEOUT);
         });
     }
 
@@ -387,6 +439,42 @@
         }
     }
 
+    async function fetchSpotvnowLive(channelNum) {
+        const channelId = `lcspo${channelNum.toString().padStart(2, '0')}`;
+        const cachedLive = liveStatusCache[channelId];
+        if (isCacheValid(cachedLive) && cachedLive.data) {
+            console.log(`Spotvnow (${channelId}): Using cache`);
+            return cachedLive.data;
+        }
+
+        const url = `https://ch${channelNum.toString().padStart(2, '0')}-nlivecdn.spotvnow.co.kr/ch${channelNum.toString().padStart(2, '0')}/decr/medialist_14173921312004482655_hls.m3u8`;
+        try {
+            const response = await fetchWithTimeout(url);
+            if (response) {
+                const thumbnail = await generateHlsThumbnail(url, channelId);
+                const streamData = {
+                    title: `Spotvnow Channel ${channelNum}`,
+                    from: 'muzso',
+                    image: thumbnail,
+                    streamer: `Spotvnow ch${channelNum.toString().padStart(2, '0')}`,
+                    viewers: 'N/A',
+                    url: `/muzso/${channelId}`,
+                    id: channelId
+                };
+                console.log(`Spotvnow (${channelId}): Live`);
+                liveStatusCache[channelId] = { data: streamData, timestamp: Date.now() };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return streamData;
+            }
+            throw new Error('Not live');
+        } catch (error) {
+            console.log(`Spotvnow (${channelId}): Not live or error`, error.message);
+            liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            return null;
+        }
+    }
+
     async function updateStreamList() {
         console.log('Opening stream list (non-Kick only)...');
         list.style.display = 'block';
@@ -407,7 +495,7 @@
         const promises = [];
 
         Object.values(liveStatusCache)
-            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from !== 'kick')
+            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from !== 'kick' && entry.data.from !== 'muzso')
             .forEach(entry => streams.set(entry.data.id, entry.data));
 
         promises.push(fetchStreamList().then(dostreamStreams => {
@@ -437,7 +525,7 @@
     }
 
     async function updateKickList() {
-        console.log('Opening Kick list...');
+        console.log('Opening Kick and Spotvnow list...');
         list.style.display = 'block';
         closeButton.style.display = 'block';
         kickButton.style.display = 'block';
@@ -454,12 +542,14 @@
 
         const streams = new Map();
 
-        // 캐시에서 유효한 Kick 스트리머 먼저 추가
         const cachedStreams = Object.values(liveStatusCache)
-            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from === 'kick');
+            .filter(entry => isCacheValid(entry) && entry.data && (entry.data.from === 'kick' || entry.data.from === 'muzso'));
         cachedStreams.forEach(entry => streams.set(entry.data.id, entry.data));
 
-        // 캐시에 없는 경우만 요청
+        if (cachedStreams.length > 0) {
+            updateStreamListDOM([...streams.values()]);
+        }
+
         const usernamesToFetch = kickUsernames.filter(username => !isCacheValid(liveStatusCache[username]) || !liveStatusCache[username]?.data);
         const kickPromises = usernamesToFetch.map(username =>
             fetchKickLive(username).then(stream => {
@@ -468,20 +558,29 @@
             })
         );
 
-        if (cachedStreams.length > 0) {
-            updateStreamListDOM([...streams.values()]); // 캐시 데이터로 즉시 렌더링
-        }
+        const spotvnowChannels = Array.from({ length: 40 }, (_, i) => i + 1);
+        const channelsToFetch = spotvnowChannels.filter(ch => {
+            const channelId = `lcspo${ch.toString().padStart(2, '0')}`;
+            return !isCacheValid(liveStatusCache[channelId]) || !liveStatusCache[channelId]?.data;
+        });
+        const spotvnowPromises = channelsToFetch.map(channelNum =>
+            fetchSpotvnowLive(channelNum).then(stream => {
+                if (stream) streams.set(stream.id, stream);
+                else streams.delete(`lcspo${channelNum.toString().padStart(2, '0')}`);
+            })
+        );
 
-        if (kickPromises.length === 0) {
+        const allPromises = [...kickPromises, ...spotvnowPromises];
+        if (allPromises.length === 0) {
             clearInterval(loadingInterval);
-            console.log('Kick Streams Loaded (all from cache):', streams.size);
+            console.log('Kick and Spotvnow Streams Loaded (all from cache):', streams.size);
             return;
         }
 
-        Promise.allSettled(kickPromises).then(() => {
+        Promise.allSettled(allPromises).then(() => {
             clearInterval(loadingInterval);
             updateStreamListDOM([...streams.values()]);
-            console.log('Kick Streams Loaded:', streams.size);
+            console.log('Kick and Spotvnow Streams Loaded:', streams.size);
         });
     }
 
