@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  롤캐 방송 목록
 // @author       lc2122
 // @match        https://lolcast.kr/*
@@ -37,8 +37,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
         }
-        #lolcastButton:hover { background: #0056b3; }
+        #kickButton {
+            background: ${isDarkMode ? '#3a3a3a' : '#E8E7E3'};
+            border: none;
+            cursor: pointer;
+            width: 30px;
+            height: 28px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        #lolcastButton:hover, #kickButton:hover { background: #0056b3; }
         #lolcastButton img { width: 24px; height: 24px; }
         #closeButton {
             position: fixed;
@@ -144,6 +158,12 @@
     closeButton.appendChild(closeImg);
     buttonContainer.appendChild(closeButton);
 
+    const kickButton = document.createElement('button');
+    kickButton.id = 'kickButton';
+    kickButton.title = 'Kick 스트리머 목록';
+    kickButton.textContent = 'KICK';
+    buttonContainer.appendChild(kickButton);
+
     const flowButton = document.createElement('button');
     flowButton.id = 'flowButton';
     flowButton.title = 'Flow 플레이어로 이동';
@@ -194,6 +214,7 @@
                 window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
                 list.style.display = 'none';
                 closeButton.style.display = 'none';
+                kickButton.style.display = 'none';
                 flowButton.style.display = 'none';
                 modeToggleButton.style.display = 'none';
             });
@@ -361,9 +382,10 @@
     }
 
     async function updateStreamList() {
-        console.log('Opening stream list...');
+        console.log('Opening stream list (non-Kick only)...');
         list.style.display = 'block';
         closeButton.style.display = 'block';
+        kickButton.style.display = 'block';
         flowButton.style.display = 'block';
         modeToggleButton.style.display = 'block';
         list.innerHTML = '로딩 중<span id="loadingDots"></span>';
@@ -378,49 +400,79 @@
         const streams = new Map();
         const promises = [];
 
-        // 캐시된 데이터 먼저 표시
+        // 캐시에서 Kick 제외한 스트리머만 가져오기
         Object.values(liveStatusCache)
-            .filter(entry => isCacheValid(entry) && entry.data)
+            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from !== 'kick')
             .forEach(entry => streams.set(entry.data.id, entry.data));
-        updateStreamListDOM([...streams.values()]);
 
-        // 비동기 요청 병렬 처리
+        // DoStream 데이터 가져오기
         promises.push(fetchStreamList().then(dostreamStreams => {
             dostreamStreams
                 .filter(stream => !excludedStreamers.includes(stream.streamer))
                 .forEach(stream => streams.set(stream.id, stream));
-            updateStreamListDOM([...streams.values()]);
         }));
 
+        // Chzzk 데이터 가져오기
         const chzzkPromises = chzzkChannelIds.map(channelId =>
             fetchChzzkLive(channelId).then(stream => {
                 if (stream) streams.set(stream.id, stream);
                 else streams.delete(channelId);
-                updateStreamListDOM([...streams.values()]);
             })
         );
         promises.push(...chzzkPromises);
 
+        // YouTube 데이터 가져오기
         promises.push(fetchYouTubeLive(youtubeChannel.id).then(stream => {
             if (stream) streams.set(stream.id, stream);
             else streams.delete(youtubeChannel.id);
-            updateStreamListDOM([...streams.values()]);
         }));
 
-        // Kick 병렬 처리
+        // 모든 데이터 로드 후 한 번만 DOM 업데이트
+        Promise.allSettled(promises).then(() => {
+            clearInterval(loadingInterval);
+            updateStreamListDOM([...streams.values()]);
+            console.log('Non-Kick Streams Loaded:', streams.size);
+        });
+    }
+
+    async function updateKickList() {
+        console.log('Opening Kick list...');
+        list.style.display = 'block';
+        closeButton.style.display = 'block';
+        kickButton.style.display = 'block';
+        flowButton.style.display = 'block';
+        modeToggleButton.style.display = 'block';
+        list.innerHTML = '로딩 중<span id="loadingDots"></span>';
+
+        const dots = document.getElementById('loadingDots');
+        let dotCount = 0;
+        const loadingInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            dots.textContent = '.'.repeat(dotCount);
+        }, 500);
+
+        const streams = new Map();
+        const promises = [];
+
+        // Kick 스트리머만 가져오기
         const kickPromises = kickUsernames.map(username =>
             fetchKickLive(username).then(stream => {
                 if (stream) streams.set(stream.id, stream);
                 else streams.delete(username);
-                updateStreamListDOM([...streams.values()]);
             })
         );
         promises.push(...kickPromises);
 
+        // 캐시에서 Kick 스트리머만 추가 (필요 시)
+        Object.values(liveStatusCache)
+            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from === 'kick')
+            .forEach(entry => streams.set(entry.data.id, entry.data));
+
+        // 모든 데이터 로드 후 한 번만 DOM 업데이트
         Promise.allSettled(promises).then(() => {
             clearInterval(loadingInterval);
             updateStreamListDOM([...streams.values()]);
-            console.log('All Streams Loaded:', streams.size);
+            console.log('Kick Streams Loaded:', streams.size);
         });
     }
 
@@ -441,6 +493,8 @@
         panel.style.background = darkBackground;
         panel.style.color = textColor;
         button.style.background = darkButtonBackground;
+        kickButton.style.background = darkButtonBackground;
+        kickButton.style.color = textColor;
         flowButton.style.background = darkButtonBackground;
         modeToggleButton.style.background = darkButtonBackground;
         list.style.background = darkBackground;
@@ -458,10 +512,16 @@
         updateStreamList();
     });
 
+    kickButton.addEventListener('click', () => {
+        console.log('Kick button clicked!');
+        updateKickList();
+    });
+
     closeButton.addEventListener('click', () => {
         console.log('Close button clicked!');
         list.style.display = 'none';
         closeButton.style.display = 'none';
+        kickButton.style.display = 'none';
         flowButton.style.display = 'none';
         modeToggleButton.style.display = 'none';
     });
