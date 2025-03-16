@@ -127,7 +127,7 @@
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
-    const REQUEST_TIMEOUT = 2000; // 타임아웃 2초로 감소
+    const REQUEST_TIMEOUT = 4000; 
 
     const panel = document.createElement('div');
     panel.id = 'lolcastPanel';
