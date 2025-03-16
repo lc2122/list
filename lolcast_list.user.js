@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.2
-// @description  롤캐 방송 목록 (다크모드 지원, 모드 전환 버튼 리스트 열릴 때만 표시, 배경 꼬임 방지, 다크모드 호버 밝게)
+// @version      0.3
+// @description  롤캐 방송 목록
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
@@ -11,7 +11,6 @@
 (function() {
     'use strict';
 
-    // 다크모드 상태 로컬 스토리지에서 불러오기 (기본값: 시스템 설정 따라감)
     let isDarkMode = localStorage.getItem('lolcastDarkMode') === 'true' ||
                      (localStorage.getItem('lolcastDarkMode') === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
@@ -72,7 +71,7 @@
             cursor: pointer;
             width: 28px;
             height: 28px;
-            display: none; /* 평소엔 숨김 */
+            display: none;
             align-items: center;
             justify-content: center;
             margin-left: 5px;
@@ -99,7 +98,7 @@
             display: flex;
             align-items: center;
         }
-        .streamItem:hover { background: ${isDarkMode ? '#7a7a7a' : '#e9ecef'}; } /* 다크모드 호버 더 밝게 */
+        .streamItem:hover { background: ${isDarkMode ? '#7a7a7a' : '#e9ecef'}; }
         .thumbnail { width: 50px; height: 28px; margin-right: 10px; object-fit: cover; }
     `;
 
@@ -110,6 +109,7 @@
                              'd6c101790f8ce022be88307814b0d205', 'd88a21503d2b84545026aa502111abd7', '13bfa7b04126a4edf3f46d584e3d4e7f',
                              '0d027498b18371674fac3ed17247e6b8'];
     const youtubeChannel = { id: 'UCw1DsweY9b2AKGjV4kGJP1A', name: 'LCK', platform: 'youtube' };
+    const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111'];
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
@@ -157,7 +157,7 @@
     modeToggleButton.id = 'modeToggleButton';
     modeToggleButton.title = '다크/라이트 모드 전환';
     const modeImg = document.createElement('img');
-    modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png'; // 다크: 태양, 라이트: 달
+    modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png';
     modeImg.alt = 'Mode Toggle';
     modeToggleButton.appendChild(modeImg);
     buttonContainer.appendChild(modeToggleButton);
@@ -192,7 +192,6 @@
                 const platform = item.dataset.platform;
                 const streamerId = item.dataset.id;
                 window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
-                // 스트리머 클릭 시 자동 닫기
                 list.style.display = 'none';
                 closeButton.style.display = 'none';
                 flowButton.style.display = 'none';
@@ -201,7 +200,7 @@
         });
     }
 
-    function fetchWithTimeout(url, timeout = 10000) {
+    function fetchWithTimeout(url, timeout = 5000) {
         return new Promise((resolve, reject) => {
             const requestId = setTimeout(() => reject(new Error('Request timed out')), timeout);
             GM_xmlhttpRequest({
@@ -238,7 +237,7 @@
                     id: stream.url ? stream.url.split('/')[2] : stream.streamer
                 }));
             }
-            throw new Error('Invalid JSON');
+            return [];
         } catch (error) {
             console.error('Error fetching dostream:', error);
             return [];
@@ -246,11 +245,13 @@
     }
 
     async function fetchChzzkLive(channelId) {
+        const cachedLive = liveStatusCache[channelId];
+        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
+
         const liveStatusUrl = `https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`;
         try {
             const text = await fetchWithTimeout(liveStatusUrl);
             const liveData = JSON.parse(text);
-            console.log(`CHZZK API 응답 (${channelId}):`, liveData);
             const live = liveData.content;
             if (!live || live.status !== 'OPEN') {
                 liveStatusCache[channelId] = { data: null, timestamp: Date.now() };
@@ -259,23 +260,7 @@
             }
 
             const channelName = channelNameCache[channelId] || live.channelName || 'Unknown';
-            if (!channelNameCache[channelId]) {
-                channelNameCache[channelId] = channelName;
-                localStorage.setItem('chzzkChannelNames', JSON.stringify(channelNameCache));
-            }
-
-            let thumbnailUrl = live.liveImageUrl;
-            if (!thumbnailUrl) {
-                const channelUrl = `https://api.chzzk.naver.com/service/v1/channels/${channelId}`;
-                try {
-                    const channelText = await fetchWithTimeout(channelUrl);
-                    const channelData = JSON.parse(channelText);
-                    thumbnailUrl = channelData.content?.channelImageUrl || 'https://via.placeholder.com/240x180';
-                } catch (channelError) {
-                    console.error(`Error fetching channel data for ${channelId}:`, channelError);
-                    thumbnailUrl = 'https://via.placeholder.com/240x180';
-                }
-            }
+            const thumbnailUrl = live.liveImageUrl || 'https://via.placeholder.com/240x180';
 
             const streamData = {
                 title: live.liveTitle || '라이브 방송 중',
@@ -339,12 +324,48 @@
         }
     }
 
+    async function fetchKickLive(username) {
+        const cachedLive = liveStatusCache[username];
+        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
+
+        const apiUrl = `https://kick.com/api/v1/channels/${username}`;
+        try {
+            const apiText = await fetchWithTimeout(apiUrl);
+            const data = JSON.parse(apiText);
+
+            if (!data || !data.livestream || !data.livestream.is_live) {
+                console.log(`Kick (${username}): Not live`);
+                liveStatusCache[username] = { data: null, timestamp: Date.now() };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return null;
+            }
+
+            const streamData = {
+                title: data.livestream.session_title || '라이브 방송 중',
+                from: 'kick',
+                image: data.livestream.thumbnail?.url || 'https://via.placeholder.com/240x180',
+                streamer: data.user?.username || username,
+                viewers: data.livestream.viewers !== undefined ? data.livestream.viewers.toString() : 'N/A',
+                url: `/kick/${username}`,
+                id: username
+            };
+
+            console.log(`Kick (${username}): Live`);
+            liveStatusCache[username] = { data: streamData, timestamp: Date.now() };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            return streamData;
+        } catch (error) {
+            console.error(`Error fetching Kick for ${username}:`, error);
+            return null;
+        }
+    }
+
     async function updateStreamList() {
         console.log('Opening stream list...');
         list.style.display = 'block';
         closeButton.style.display = 'block';
         flowButton.style.display = 'block';
-        modeToggleButton.style.display = 'block'; // 리스트 열릴 때만 표시
+        modeToggleButton.style.display = 'block';
         list.innerHTML = '로딩 중<span id="loadingDots"></span>';
 
         const dots = document.getElementById('loadingDots');
@@ -357,44 +378,56 @@
         const streams = new Map();
         const promises = [];
 
+        // 캐시된 데이터 먼저 표시
         Object.values(liveStatusCache)
             .filter(entry => isCacheValid(entry) && entry.data)
             .forEach(entry => streams.set(entry.data.id, entry.data));
+        updateStreamListDOM([...streams.values()]);
 
+        // 비동기 요청 병렬 처리
         promises.push(fetchStreamList().then(dostreamStreams => {
             dostreamStreams
                 .filter(stream => !excludedStreamers.includes(stream.streamer))
                 .forEach(stream => streams.set(stream.id, stream));
+            updateStreamListDOM([...streams.values()]);
         }));
 
-        chzzkChannelIds.forEach(channelId => {
-            promises.push(fetchChzzkLive(channelId).then(stream => {
+        const chzzkPromises = chzzkChannelIds.map(channelId =>
+            fetchChzzkLive(channelId).then(stream => {
                 if (stream) streams.set(stream.id, stream);
                 else streams.delete(channelId);
-            }));
-        });
+                updateStreamListDOM([...streams.values()]);
+            })
+        );
+        promises.push(...chzzkPromises);
 
         promises.push(fetchYouTubeLive(youtubeChannel.id).then(stream => {
             if (stream) streams.set(stream.id, stream);
             else streams.delete(youtubeChannel.id);
+            updateStreamListDOM([...streams.values()]);
         }));
 
-        Promise.all(promises).then(() => {
+        // Kick 병렬 처리
+        const kickPromises = kickUsernames.map(username =>
+            fetchKickLive(username).then(stream => {
+                if (stream) streams.set(stream.id, stream);
+                else streams.delete(username);
+                updateStreamListDOM([...streams.values()]);
+            })
+        );
+        promises.push(...kickPromises);
+
+        Promise.allSettled(promises).then(() => {
             clearInterval(loadingInterval);
-            const streamArray = [...streams.values()];
-            updateStreamListDOM(streamArray);
-            console.log('All Streams Loaded:', streamArray);
-        }).catch(error => {
-            clearInterval(loadingInterval);
-            console.error('Error updating stream list:', error);
-            list.innerHTML = '스트림 로드에 실패했습니다. 다시 시도해주세요.';
+            updateStreamListDOM([...streams.values()]);
+            console.log('All Streams Loaded:', streams.size);
         });
     }
 
     function toggleDarkMode() {
         isDarkMode = !isDarkMode;
         localStorage.setItem('lolcastDarkMode', isDarkMode);
-        modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png'; // 다크: 태양, 라이트: 달
+        modeImg.src = isDarkMode ? 'https://cdn-icons-png.flaticon.com/512/581/581601.png' : 'https://cdn-icons-png.flaticon.com/512/3073/3073665.png';
         updateStyles();
     }
 
@@ -414,7 +447,7 @@
         list.style.color = textColor;
         document.querySelectorAll('.streamItem').forEach(item => {
             item.style.background = itemBackground;
-            item.style.color = textColor; // 텍스트 색상도 동기화
+            item.style.color = textColor;
             item.onmouseover = () => item.style.background = hoverBackground;
             item.onmouseout = () => item.style.background = itemBackground;
         });
@@ -430,7 +463,7 @@
         list.style.display = 'none';
         closeButton.style.display = 'none';
         flowButton.style.display = 'none';
-        modeToggleButton.style.display = 'none'; // 닫을 때 숨김
+        modeToggleButton.style.display = 'none';
     });
 
     flowButton.addEventListener('click', () => {
@@ -443,6 +476,5 @@
         toggleDarkMode();
     });
 
-    // 초기 스타일 적용
     updateStyles();
 })();
