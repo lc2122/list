@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         롤캐 리스트 with HLS Thumbnails
+// @name         롤캐 리스트 
 // @namespace    http://tampermonkey.net/
 // @version      0.5
 // @description  롤캐 방송 목록 with Spotvnow HLS thumbnails
