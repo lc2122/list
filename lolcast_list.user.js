@@ -123,10 +123,11 @@
                              'd6c101790f8ce022be88307814b0d205', 'd88a21503d2b84545026aa502111abd7', '13bfa7b04126a4edf3f46d584e3d4e7f',
                              '0d027498b18371674fac3ed17247e6b8'];
     const youtubeChannel = { id: 'UCw1DsweY9b2AKGjV4kGJP1A', name: 'LCK', platform: 'youtube' };
-    const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111', 'arinarintv', 'neiamok', 'nei0001'];
+    const kickUsernames = ['d4ei4dy4ds3', 'kdj1779991', 'karyn4021', 'karyn4011', 'hamtore150', 'khh1111', 'arinarintv'];
     const channelNameCache = JSON.parse(localStorage.getItem('chzzkChannelNames') || '{}');
     const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
+    const REQUEST_TIMEOUT = 2000; // 타임아웃 2초로 감소
 
     const panel = document.createElement('div');
     panel.id = 'lolcastPanel';
@@ -221,7 +222,7 @@
         });
     }
 
-    function fetchWithTimeout(url, timeout = 5000) {
+    function fetchWithTimeout(url, timeout = REQUEST_TIMEOUT) {
         return new Promise((resolve, reject) => {
             const requestId = setTimeout(() => reject(new Error('Request timed out')), timeout);
             GM_xmlhttpRequest({
@@ -347,7 +348,10 @@
 
     async function fetchKickLive(username) {
         const cachedLive = liveStatusCache[username];
-        if (isCacheValid(cachedLive) && cachedLive.data) return cachedLive.data;
+        if (isCacheValid(cachedLive) && cachedLive.data) {
+            console.log(`Kick (${username}): Using cache`);
+            return cachedLive.data;
+        }
 
         const apiUrl = `https://kick.com/api/v1/channels/${username}`;
         try {
@@ -377,6 +381,8 @@
             return streamData;
         } catch (error) {
             console.error(`Error fetching Kick for ${username}:`, error);
+            liveStatusCache[username] = { data: null, timestamp: Date.now() };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
             return null;
         }
     }
@@ -400,19 +406,16 @@
         const streams = new Map();
         const promises = [];
 
-        // 캐시에서 Kick 제외한 스트리머만 가져오기
         Object.values(liveStatusCache)
             .filter(entry => isCacheValid(entry) && entry.data && entry.data.from !== 'kick')
             .forEach(entry => streams.set(entry.data.id, entry.data));
 
-        // DoStream 데이터 가져오기
         promises.push(fetchStreamList().then(dostreamStreams => {
             dostreamStreams
                 .filter(stream => !excludedStreamers.includes(stream.streamer))
                 .forEach(stream => streams.set(stream.id, stream));
         }));
 
-        // Chzzk 데이터 가져오기
         const chzzkPromises = chzzkChannelIds.map(channelId =>
             fetchChzzkLive(channelId).then(stream => {
                 if (stream) streams.set(stream.id, stream);
@@ -421,13 +424,11 @@
         );
         promises.push(...chzzkPromises);
 
-        // YouTube 데이터 가져오기
         promises.push(fetchYouTubeLive(youtubeChannel.id).then(stream => {
             if (stream) streams.set(stream.id, stream);
             else streams.delete(youtubeChannel.id);
         }));
 
-        // 모든 데이터 로드 후 한 번만 DOM 업데이트
         Promise.allSettled(promises).then(() => {
             clearInterval(loadingInterval);
             updateStreamListDOM([...streams.values()]);
@@ -452,24 +453,32 @@
         }, 500);
 
         const streams = new Map();
-        const promises = [];
 
-        // Kick 스트리머만 가져오기
-        const kickPromises = kickUsernames.map(username =>
+        // 캐시에서 유효한 Kick 스트리머 먼저 추가
+        const cachedStreams = Object.values(liveStatusCache)
+            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from === 'kick');
+        cachedStreams.forEach(entry => streams.set(entry.data.id, entry.data));
+
+        // 캐시에 없는 경우만 요청
+        const usernamesToFetch = kickUsernames.filter(username => !isCacheValid(liveStatusCache[username]) || !liveStatusCache[username]?.data);
+        const kickPromises = usernamesToFetch.map(username =>
             fetchKickLive(username).then(stream => {
                 if (stream) streams.set(stream.id, stream);
                 else streams.delete(username);
             })
         );
-        promises.push(...kickPromises);
 
-        // 캐시에서 Kick 스트리머만 추가 (필요 시)
-        Object.values(liveStatusCache)
-            .filter(entry => isCacheValid(entry) && entry.data && entry.data.from === 'kick')
-            .forEach(entry => streams.set(entry.data.id, entry.data));
+        if (cachedStreams.length > 0) {
+            updateStreamListDOM([...streams.values()]); // 캐시 데이터로 즉시 렌더링
+        }
 
-        // 모든 데이터 로드 후 한 번만 DOM 업데이트
-        Promise.allSettled(promises).then(() => {
+        if (kickPromises.length === 0) {
+            clearInterval(loadingInterval);
+            console.log('Kick Streams Loaded (all from cache):', streams.size);
+            return;
+        }
+
+        Promise.allSettled(kickPromises).then(() => {
             clearInterval(loadingInterval);
             updateStreamListDOM([...streams.values()]);
             console.log('Kick Streams Loaded:', streams.size);
