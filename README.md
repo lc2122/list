@@ -20,7 +20,6 @@ https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
 <br>
 https://greasyfork.org/en/scripts/505975-lolcast-macro
 <br>
-
 3. 롤캐 리스트 
 <br>
 https://raw.githubusercontent.com/lc2122/list/main/lolcast_list.user.js
