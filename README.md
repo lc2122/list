@@ -23,7 +23,7 @@ https://greasyfork.org/en/scripts/505975-lolcast-macro
 3. 롤캐 리스트 
 <br>
 https://raw.githubusercontent.com/lc2122/list/main/lolcast_list.user.js
-
+<br>기존 롤캐스트림 리스트 + 롤캐 장주들 추가 + 옥냥이 추가 + KICK탭(KICK 리스트+스포티비) 
 <br>
 4. 치지직 넓은 화면 모드+롤캐 사이드바 설정
 <br>자동으로 채팅창이 꺼지며 넓은화면 실행 + 롤캐 좌우 사이드바 설정
