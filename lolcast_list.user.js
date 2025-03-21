@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         롤캐 리스트 with HLS Thumbnails
 // @namespace    http://tampermonkey.net/
-// @version      0.6
+// @version      0.7
 // @description  롤캐 방송 목록 with Spotvnow HLS thumbnails
 // @author       lc2122
 // @match        https://lolcast.kr/*
@@ -130,6 +130,7 @@
     const thumbnailCache = JSON.parse(localStorage.getItem('thumbnailCache') || '{}');
     const CACHE_EXPIRY = 5 * 60 * 1000;
     const REQUEST_TIMEOUT = 10000;
+    const DEFAULT_THUMBNAIL = 'https://placehold.co/50x28';
 
     const panel = document.createElement('div');
     panel.id = 'lolcastPanel';
@@ -201,7 +202,7 @@
         console.log(`Creating stream item for ${stream.id}: ${stream.image}`);
         return `
             <div class="streamItem" data-platform="${stream.from}" data-id="${stream.id}">
-                <img src="${stream.image}" class="thumbnail" alt="Thumbnail" onerror="this.src='https://via.placeholder.com/50x28';">
+                <img src="${stream.image}" class="thumbnail" alt="Thumbnail" onerror="this.onerror=null; this.src='${DEFAULT_THUMBNAIL}'; console.error('Thumbnail load failed for ${stream.id}: ${stream.image}');">
                 ${stream.streamer} (${stream.from}): ${stream.title} - ${stream.viewers || '시청자 수 없음'}명
             </div>
         `;
@@ -286,19 +287,19 @@
             video.addEventListener('error', () => {
                 console.log(`Thumbnail (${channelId}): Video error`);
                 hls.destroy();
-                resolve('https://via.placeholder.com/50x28');
+                resolve(DEFAULT_THUMBNAIL);
             });
 
             hls.on(Hls.Events.ERROR, (event, data) => {
                 console.error(`HLS error for ${channelId}:`, data.type, data.details);
                 hls.destroy();
-                resolve('https://via.placeholder.com/50x28');
+                resolve(DEFAULT_THUMBNAIL);
             });
 
             setTimeout(() => {
                 if (!video.readyState) {
                     console.log(`Thumbnail (${channelId}): Timed out`);
-                    resolve('https://via.placeholder.com/50x28');
+                    resolve(DEFAULT_THUMBNAIL);
                 }
             }, REQUEST_TIMEOUT);
         });
@@ -313,7 +314,7 @@
                 return streams.map(stream => ({
                     title: stream.title || '라이브 방송 중',
                     from: stream.from || 'afreeca',
-                    image: stream.image || 'https://via.placeholder.com/50x28',
+                    image: stream.image || DEFAULT_THUMBNAIL,
                     streamer: stream.streamer || 'Unknown',
                     viewers: stream.viewers || 'N/A',
                     url: stream.url || '',
@@ -348,8 +349,17 @@
             }
 
             const channelName = channelNameCache[channelId] || live.channelName || 'Unknown';
-            const thumbnailUrl = live.liveImageUrl?.replace('{type}', '720') || 'https://via.placeholder.com/50x28';
-            console.log(`Chzzk (${channelId}): Thumbnail URL - ${thumbnailUrl}`);
+            let thumbnailUrl = live.liveImageUrl?.replace('{type}', '720') || DEFAULT_THUMBNAIL;
+
+            // 썸네일 URL 검증
+            try {
+                await fetchWithTimeout(thumbnailUrl);
+                console.log(`Chzzk (${channelId}): Thumbnail URL valid - ${thumbnailUrl}`);
+            } catch (e) {
+                console.warn(`Chzzk (${channelId}): Thumbnail URL invalid, falling back to HLS - ${thumbnailUrl}`);
+                const hlsUrl = live.livePlaybackJson ? JSON.parse(live.livePlaybackJson).media.find(m => m.protocol === 'HLS')?.path : null;
+                thumbnailUrl = hlsUrl ? await generateHlsThumbnail(hlsUrl, channelId) : DEFAULT_THUMBNAIL;
+            }
 
             const streamData = {
                 title: live.liveTitle || '라이브 방송 중',
@@ -389,7 +399,7 @@
             if (videoIdMatch && videoIdMatch[1] && isLive) {
                 const videoId = videoIdMatch[1];
                 const title = text.match(/"title":"([^"]+)"/)?.[1] || '라이브 방송 중';
-                const thumbnail = text.match(/"thumbnailUrl":"([^"]+)"/)?.[1] || 'https://i.imgur.com/bL3GZl6.png';
+                const thumbnail = text.match(/"thumbnailUrl":"([^"]+)"/)?.[1] || DEFAULT_THUMBNAIL;
                 const channelName = channelNameCache[channelId] || text.match(/"channelName":"([^"]+)"/)?.[1] || 'LCK';
 
                 if (!channelNameCache[channelId]) {
@@ -445,7 +455,7 @@
             const streamData = {
                 title: data.livestream.session_title || '라이브 방송 중',
                 from: 'kick',
-                image: data.livestream.thumbnail?.url || 'https://via.placeholder.com/50x28',
+                image: data.livestream.thumbnail?.url || DEFAULT_THUMBNAIL,
                 streamer: data.user?.username || username,
                 viewers: data.livestream.viewers !== undefined ? data.livestream.viewers.toString() : 'N/A',
                 url: `/kick/${username}`,
