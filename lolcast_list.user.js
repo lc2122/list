@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         롤캐 리스트 with HLS Thumbnails
+// @name         롤캐 리스트
 // @namespace    http://tampermonkey.net/
-// @version      0.7
-// @description  롤캐 방송 목록 with Spotvnow HLS thumbnails
+// @version      0.8
+// @description  롤캐 방송 목록
 // @author       lc2122
 // @match        https://lolcast.kr/*
 // @grant        GM_xmlhttpRequest
@@ -216,14 +216,45 @@
             item.addEventListener('click', () => {
                 const platform = item.dataset.platform;
                 const streamerId = item.dataset.id;
-                window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
-                list.style.display = 'none';
-                closeButton.style.display = 'none';
-                kickButton.style.display = 'none';
-                flowButton.style.display = 'none';
-                modeToggleButton.style.display = 'none';
+
+                if (platform === 'muzso') {
+                    const channelNum = streamerId.replace('lcspo', '');
+                    const m3u8Url = `https://ch${channelNum}-nlivecdn.spotvnow.co.kr/ch${channelNum}/decr/medialist_14173921312004482655_hls.m3u8`;
+                    localStorage.setItem('pendingChannelNum', channelNum); // 채널 번호 저장
+                    window.location.href = 'https://lolcast.kr/#/player/lolcasttv';
+                } else {
+                    window.location.href = `https://lolcast.kr/#/player/${platform}/${streamerId}`;
+                    list.style.display = 'none';
+                    closeButton.style.display = 'none';
+                    kickButton.style.display = 'none';
+                    flowButton.style.display = 'none';
+                    modeToggleButton.style.display = 'none';
+                }
             });
         });
+    }
+
+    function triggerSpotvButtonClick(channelNum) {
+        const iframe = document.querySelector('iframe');
+        if (!iframe || !iframe.contentDocument) {
+            console.log('Iframe not loaded yet, retrying...');
+            setTimeout(() => triggerSpotvButtonClick(channelNum), 500);
+            return;
+        }
+
+        const paddedChannelNum = channelNum.padStart(2, '0');
+        const button = iframe.contentDocument.querySelector(
+            `.small-channel-btn[data-url="https://ch${paddedChannelNum}-nlivecdn.spotvnow.co.kr/ch${paddedChannelNum}/decr/medialist_14173921312004482655_hls.m3u8"]`
+        );
+
+        if (button) {
+            console.log(`Triggering click on SPOTV button for channel ${paddedChannelNum}`);
+            const clickEvent = new Event('click', { bubbles: true, cancelable: true });
+            button.dispatchEvent(clickEvent);
+        } else {
+            console.error(`SPOTV button for channel ${paddedChannelNum} not found, retrying...`);
+            setTimeout(() => triggerSpotvButtonClick(channelNum), 500);
+        }
     }
 
     function fetchWithTimeout(url, timeout = REQUEST_TIMEOUT) {
@@ -351,7 +382,6 @@
             const channelName = channelNameCache[channelId] || live.channelName || 'Unknown';
             let thumbnailUrl = live.liveImageUrl?.replace('{type}', '720') || DEFAULT_THUMBNAIL;
 
-            // 썸네일 URL 검증
             try {
                 await fetchWithTimeout(thumbnailUrl);
                 console.log(`Chzzk (${channelId}): Thumbnail URL valid - ${thumbnailUrl}`);
@@ -678,6 +708,24 @@
         console.log('Mode toggle clicked!');
         toggleDarkMode();
     });
+
+    window.addEventListener('hashchange', () => {
+        if (window.location.hash === '#/player/lolcasttv') {
+            const channelNum = localStorage.getItem('pendingChannelNum');
+            if (channelNum) {
+                triggerSpotvButtonClick(channelNum);
+                localStorage.removeItem('pendingChannelNum');
+            }
+        }
+    });
+
+    if (window.location.hash === '#/player/lolcasttv') {
+        const channelNum = localStorage.getItem('pendingChannelNum');
+        if (channelNum) {
+            triggerSpotvButtonClick(channelNum);
+            localStorage.removeItem('pendingChannelNum');
+        }
+    }
 
     updateStyles();
 })();
