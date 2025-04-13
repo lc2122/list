@@ -5,6 +5,7 @@
 // @description  롤캐 방송 목록
 // @author       lc2122
 // @match        https://lolcast.kr/*
+// @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/spolist.user.js
 // @grant        GM_xmlhttpRequest
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js
 // ==/UserScript==
