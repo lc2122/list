@@ -1,12 +1,289 @@
 // ==UserScript==
-// @name         롤캐 Spotvnow 리스트
+// @name         버튼 연동 (롤캐용)
 // @namespace    http://tampermonkey.net/
-// @version      0.9.3.min.fix
-// @description  롤캐 방송 목록
-// @author       lc2122
-// @match        https://lolcast.kr/*
+// @version      1.1.0
+// @description  스포티비 확인용
+// @author       ㅇㅌㄹㅋ
+// @match        https://lolcast-e0478.web.app/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/spolist.user.js
 // @grant        GM_xmlhttpRequest
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js
 // ==/UserScript==
-(function(){'use strict';let isDarkMode=localStorage.getItem('lolcastDarkMode')==='true'||(localStorage.getItem('lolcastDarkMode')===null&&window.matchMedia('(prefers-color-scheme: dark)').matches);const styles=`#lolcastPanel{position:fixed;top:55px;right:293px;background:${isDarkMode?'#2a2a2a':'#E8E7E3'};z-index:10000;font-family:Arial,sans-serif;display:flex;flex-direction:column;border-radius:3px;color:${isDarkMode?'#ffffff':'#000000'}}#buttonContainer{display:flex;align-items:center;width:fit-content;height:28px}#spotvnowButton,#refreshButton,#modeToggleButton{background:${isDarkMode?'#3a3a3a':'#E8E7E3'};border:none;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;padding:0}#spotvnowButton img,#refreshButton img,#modeToggleButton img{width:20px;height:20px}#spotvnowButton:hover,#refreshButton:hover,#modeToggleButton:hover{background:#0056b3}#refreshButton,#modeToggleButton{display:none;margin-left:5px}#closeButton{position:fixed;top:58px;right:296px;background:#ff4d4d;border:none;cursor:pointer;width:23px;height:23px;display:none;padding:0;border-radius:50%;z-index:10001}#closeButton:hover{background:#cc0000}#closeButton img{width:11px;height:11px;display:block;margin:auto}#streamList{background:${isDarkMode?'#2a2a2a':'#E8E7E3'};margin-top:0;display:none;max-height:400px;overflow-y:auto;padding:5px;width:500px;border-radius:0 0 3px 3px;color:${isDarkMode?'#ffffff':'#000000'}}.streamItem{margin:2px 0;padding:5px;background:${isDarkMode?'rgba(80,80,80,0.9)':'rgba(255,255,255,0.9)'};border-radius:3px;cursor:pointer;display:flex;align-items:center}.streamItem:hover{background:${isDarkMode?'#7a7a7a':'#e9ecef'}}.thumbnail{width:100px;height:56px;margin-right:10px;object-fit:cover;flex-shrink:0}`;const liveStatusCache=JSON.parse(localStorage.getItem('liveStatusCache')||'{}');const thumbnailCache=JSON.parse(localStorage.getItem('thumbnailCache')||'{}');const CACHE_EXPIRY=300000;const FETCH_TIMEOUT=10000;const THUMBNAIL_TIMEOUT=15000;const DEFAULT_THUMBNAIL='https://placehold.co/100x56';const panel=document.createElement('div');panel.id='lolcastPanel';document.body.appendChild(panel);const styleSheet=document.createElement('style');styleSheet.textContent=styles;document.head.appendChild(styleSheet);const buttonContainer=document.createElement('div');buttonContainer.id='buttonContainer';panel.appendChild(buttonContainer);const spotvnowButton=document.createElement('button');spotvnowButton.id='spotvnowButton';spotvnowButton.title='Spotvnow 목록 열기/닫기';const buttonImg=document.createElement('img');buttonImg.src='https://images.icon-icons.com/3478/PNG/512/checklist_list_orderlist_order_icon_219982.png';buttonImg.alt='목록';spotvnowButton.appendChild(buttonImg);buttonContainer.appendChild(spotvnowButton);const refreshButton=document.createElement('button');refreshButton.id='refreshButton';refreshButton.title='목록 새로고침';const refreshImg=document.createElement('img');refreshImg.src='https://cdn-icons-png.flaticon.com/512/118/118797.png';refreshImg.alt='새로고침';refreshButton.appendChild(refreshImg);buttonContainer.appendChild(refreshButton);const modeToggleButton=document.createElement('button');modeToggleButton.id='modeToggleButton';modeToggleButton.title='다크/라이트 모드 전환';const modeImg=document.createElement('img');modeImg.src=isDarkMode?'https://cdn-icons-png.flaticon.com/512/581/581601.png':'https://cdn-icons-png.flaticon.com/512/3073/3073665.png';modeImg.alt='모드';modeToggleButton.appendChild(modeImg);buttonContainer.appendChild(modeToggleButton);const closeButton=document.createElement('button');closeButton.id='closeButton';closeButton.title='목록 닫기';const closeImg=document.createElement('img');closeImg.src='https://cdn-icons-png.flaticon.com/512/1828/1828778.png';closeImg.alt='닫기';closeButton.appendChild(closeImg);document.body.appendChild(closeButton);const list=document.createElement('div');list.id='streamList';panel.appendChild(list);function isCacheValid(e){return e&&Date.now()-e.timestamp<CACHE_EXPIRY}function createStreamItemHTML(e){if(!e.id)return'';return`<div class="streamItem" data-platform="${e.from}" data-id="${e.id}"><img src="${e.image}" class="thumbnail" alt="Thumbnail" onerror="this.onerror=null; this.src='${DEFAULT_THUMBNAIL}';"><div>${e.streamer} (${e.from==='muzso'?'Spotvnow':e.from}): ${e.title}</div></div>`}function updateStreamListDOM(e){const t=Array.from(new Map(e.map(e=>[e.id,e])).values());t.sort((e,t)=>{const n=parseInt(e.id.replace('lcspo',''),10),o=parseInt(t.id.replace('lcspo',''),10);return n-o});const n=t.map(createStreamItemHTML).join('');list.innerHTML=n||'라이브 스트림이 없습니다.';list.querySelectorAll('.streamItem').forEach(e=>{e.addEventListener('click',()=>{const t=e.dataset.platform,n=e.dataset.id;if(t==='muzso'){const e=n.replace('lcspo','');localStorage.setItem('pendingChannelNum',e);window.location.href='https://lolcast.kr/#/player/lolcasttv';closeButton.click()}})})};function triggerSpotvButtonClick(e){const t=document.querySelector('iframe[src*="lolcast.tv/player/lolcasttv"]')||document.querySelector('iframe');if(!t||!t.contentDocument){setTimeout(()=>triggerSpotvButtonClick(e),500);return}const n=e.padStart(2,'0'),o=`.small-channel-btn[data-url*="ch${n}-nlivecdn.spotvnow.co.kr"]`,r=t.contentDocument.querySelector(o);if(r){const e=new MouseEvent('click',{view:t.contentWindow,bubbles:!0,cancelable:!0});r.dispatchEvent(e);localStorage.removeItem('pendingChannelNum')}else setTimeout(()=>triggerSpotvButtonClick(e),1e3)}function fetchWithTimeout(e,t=FETCH_TIMEOUT){return new Promise((n,o)=>{const r=new AbortController,l=r.signal,a=setTimeout(()=>{r.abort();o(new Error('Request timed out'))},t);GM_xmlhttpRequest({method:"GET",url:e,signal:l,headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'},onload:e=>{clearTimeout(a);e.status>=200&&e.status<300?n(e.responseText):o(new Error(`Request failed with status ${e.status}`))},onerror:e=>{clearTimeout(a);o(new Error('Request failed'))},onabort:()=>{clearTimeout(a)}})})}async function generateHlsThumbnail(e,t){const n=thumbnailCache[t];if(n&&isCacheValid(n))return n.data;if(!Hls.isSupported())return DEFAULT_THUMBNAIL;return new Promise(n=>{const o=document.createElement('video');o.muted=!0;o.preload='metadata';o.crossOrigin='anonymous';o.width=100;o.height=56;const r=new Hls;let l=setTimeout(()=>{a();n(DEFAULT_THUMBNAIL)},THUMBNAIL_TIMEOUT),s=!1;const a=()=>{if(s)return;s=!0;clearTimeout(l);r&&r.destroy();if(o){o.removeEventListener('loadeddata',c);o.removeEventListener('seeked',i);o.removeEventListener('error',u);o.src=""}},c=()=>{o.removeEventListener('loadeddata',c);o.seekable.length>0&&(o.currentTime=1)},i=()=>{setTimeout(()=>{if(s)return;const e=document.createElement('canvas');e.width=100;e.height=56;const t=e.getContext('2d');try{t.drawImage(o,0,0,e.width,e.height);const r=e.toDataURL('image/png');if(r.length<200){a();n(DEFAULT_THUMBNAIL)}else{thumbnailCache[t]={data:r,timestamp:Date.now()};localStorage.setItem('thumbnailCache',JSON.stringify(thumbnailCache));a();n(r)}}catch(e){a();n(DEFAULT_THUMBNAIL)}},150)},u=e=>{a();n(DEFAULT_THUMBNAIL)};o.addEventListener('loadeddata',c);o.addEventListener('seeked',i);o.addEventListener('error',u);r.on(Hls.Events.ERROR,(e,t)=>{(t.fatal||t.type===Hls.ErrorTypes.NETWORK_ERROR)&&(a(),n(DEFAULT_THUMBNAIL))});r.loadSource(e);r.attachMedia(o)})}async function fetchSpotvnowLive(num){const id=`lcspo${num.toString().padStart(2,'0')}`,cache=liveStatusCache[id];if(isCacheValid(cache))return cache.data;const pNum=num.toString().padStart(2,'0'),url=`https://ch${pNum}-nlivecdn.spotvnow.co.kr/ch${pNum}/decr/medialist_14173921312004482655_hls.m3u8`;try{await fetchWithTimeout(url,FETCH_TIMEOUT);const thumb=await generateHlsThumbnail(url,id);if(thumb===DEFAULT_THUMBNAIL){liveStatusCache[id]={data:null,timestamp:Date.now()};localStorage.setItem('liveStatusCache',JSON.stringify(liveStatusCache));return null}const data={title:`Spotvnow Channel ${num}`,from:'muzso',image:thumb,streamer:`Spotvnow ch${pNum}`,viewers:'N/A',url:`/muzso/${id}`,id:id};liveStatusCache[id]={data:data,timestamp:Date.now()};localStorage.setItem('liveStatusCache',JSON.stringify(liveStatusCache));return data}catch(err){liveStatusCache[id]={data:null,timestamp:Date.now()};localStorage.setItem('liveStatusCache',JSON.stringify(liveStatusCache));return null}}function toggleDarkMode(){isDarkMode=!isDarkMode;localStorage.setItem('lolcastDarkMode',isDarkMode);modeImg.src=isDarkMode?'https://cdn-icons-png.flaticon.com/512/581/581601.png':'https://cdn-icons-png.flaticon.com/512/3073/3073665.png';updateStyles()}function updateStyles(){const e=isDarkMode?'#2a2a2a':'#E8E7E3',t=isDarkMode?'#3a3a3a':'#E8E7E3',n=isDarkMode?'#ffffff':'#000000',o=isDarkMode?'rgba(80,80,80,0.9)':'rgba(255,255,255,0.9)',r=isDarkMode?'#7a7a7a':'#e9ecef';panel.style.background=e;panel.style.color=n;spotvnowButton.style.background=t;refreshButton.style.background=t;modeToggleButton.style.background=t;list.style.background=e;list.style.color=n;document.querySelectorAll('.streamItem').forEach(e=>{e.style.background=o;e.style.color=n;e.onmouseover=()=>{e.style.background=r};e.onmouseout=()=>{e.style.background=o}})}let loadingInterval=null;async function updateSpotvnowList(){list.style.display='block';list.innerHTML='로딩 중<span id="loadingDots">.</span>';closeButton.style.display='block';refreshButton.style.display='flex';modeToggleButton.style.display='flex';loadingInterval&&clearInterval(loadingInterval);const e=list.querySelector('#loadingDots');let t=1;loadingInterval=setInterval(()=>{t=t%3+1;e&&(e.textContent='.'.repeat(t))},500);const n=new Map,o=Array.from({length:40},(_,e)=>e+1),r=o.map(e=>fetchSpotvnowLive(e).then(t=>{const o=`lcspo${e.toString().padStart(2,'0')}`;t?n.set(t.id,t):n.delete(o)}).catch(t=>{const o=`lcspo${e.toString().padStart(2,'0')}`;n.delete(o)}));Promise.allSettled(r).then(e=>{loadingInterval&&clearInterval(loadingInterval);loadingInterval=null;updateStreamListDOM([...n.values()])})}spotvnowButton.addEventListener('click',()=>{list.style.display==='block'?closeButton.click():updateSpotvnowList()});refreshButton.addEventListener('click',()=>{updateSpotvnowList()});closeButton.addEventListener('click',()=>{list.style.display='none';closeButton.style.display='none';refreshButton.style.display='none';modeToggleButton.style.display='none';loadingInterval&&clearInterval(loadingInterval);loadingInterval=null});modeToggleButton.addEventListener('click',()=>{toggleDarkMode()});window.addEventListener('hashchange',()=>{const e=window.location.hash;if(e==='#/player/lolcasttv'){const e=localStorage.getItem('pendingChannelNum');e&&setTimeout(()=>triggerSpotvButtonClick(e),1e3)}});if(window.location.hash==='#/player/lolcasttv'){const e=localStorage.getItem('pendingChannelNum');e&&setTimeout(()=>triggerSpotvButtonClick(e),1500)}updateStyles()})();
+
+(function() {
+    'use strict';
+
+    const styles = `
+        #customPlayerPanel {
+            position: fixed;
+            top: 5px;       /* 화면 상단 기준 위치 */
+            left: 190px;     /* 화면 왼쪽 기준 위치 (조정 가능) */
+            background: #14161A; /* ★★★ 부모 사이드바 배경색 ★★★ */
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            border-radius: 3px;
+            color: #c5c8cc; /* ★★★ 기본 밝은 텍스트 색상 ★★★ */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3); /* 그림자 약간 어둡게 */
+            transition: left 0.3s ease; /* 사이드바 연동 애니메이션 */
+        }
+        #customPlayerPanel #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
+        /* --- 버튼 배경/테두리/텍스트 색상 변경 --- */
+        #customPlayerPanel #spotvnowButton, #customPlayerPanel #refreshButton {
+            background: #2a2d33; /* 약간 밝은 어두운 배경 */
+            border: 1px solid #4b505a; /* 어두운 테두리 */
+            color: #c5c8cc; /* 밝은 아이콘/텍스트 */
+            cursor: pointer;
+            width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; padding: 0;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        #customPlayerPanel #spotvnowButton img, #customPlayerPanel #refreshButton img {
+            width: 20px; height: 20px;
+            /* 아이콘이 어두운 색일 경우 밝게 보이도록 */
+            filter: brightness(0) invert(0.8); /* 예시: 약간 회색빛 도는 흰색 */
+        }
+        #customPlayerPanel #spotvnowButton:hover, #customPlayerPanel #refreshButton:hover {
+            background: #3c4047; /* 호버 시 약간 더 밝게 */
+            border-color: #6a707c;
+        }
+        #customPlayerPanel #refreshButton { display: none; margin-left: 5px; } /* 새로고침 버튼 기본 숨김 */
+
+        /* --- 닫기 버튼 스타일 유지 (빨간색 강조) --- */
+        #customPlayerPanel #closeButton {
+            position: absolute; top: 2px; right: 2px; background: #ff4d4d; border: none; cursor: pointer;
+            width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; z-index: 10001;
+            line-height: 23px; text-align: center;
+        }
+        #customPlayerPanel #closeButton:hover { background: #cc0000; }
+        #customPlayerPanel #closeButton img { width: 11px; height: 11px; display: inline-block; vertical-align: middle; margin-top: -2px; filter: brightness(0) invert(1); /* 흰색 아이콘 */ }
+
+        /* --- 리스트 스타일 변경 --- */
+        #customPlayerPanel #streamList {
+            background: #14161A; /* ★★★ 패널과 동일한 배경 ★★★ */
+            margin-top: 0; display: none; max-height: 500px; overflow-y: auto;
+            padding: 5px; width: 400px; border-radius: 0 0 3px 3px;
+            color: #c5c8cc; /* 기본 텍스트 색상 */
+            scrollbar-width: thin;
+            scrollbar-color: #6a707c #2a2d33; /* 스크롤바 색상 */
+        }
+         #customPlayerPanel #streamList::-webkit-scrollbar { width: 6px; }
+         #customPlayerPanel #streamList::-webkit-scrollbar-track { background: #2a2d33; border-radius: 3px;}
+         #customPlayerPanel #streamList::-webkit-scrollbar-thumb { background-color: #6a707c; border-radius: 3px; }
+
+        /* --- 리스트 아이템 스타일 변경 --- */
+        #customPlayerPanel .streamItem {
+            margin: 2px 0; padding: 5px; background: #2a2d33; /* 약간 밝은 어두운 배경 */
+            border-radius: 3px; cursor: pointer; display: flex; align-items: center;
+            transition: background-color 0.2s;
+        }
+        #customPlayerPanel .streamItem:hover { background: #3c4047; /* 호버 시 약간 더 밝게 */ }
+        #customPlayerPanel .thumbnail { width: 120px; height: 68px; margin-right: 8px; object-fit: cover; flex-shrink: 0; border: 1px solid #4b505a; /* 어두운 테두리 */ }
+        #customPlayerPanel .streamInfo { font-size: 12px; line-height: 1.3; }
+        #customPlayerPanel .streamTitle { font-weight: bold; color: #e0e3e6; /* 제목은 조금 더 밝게 */ }
+        #customPlayerPanel .streamerName { color: #a0a5ac; /* 스트리머 이름은 약간 어둡게 */ }
+
+        /* 로딩/없음 메시지 */
+         #customPlayerPanel #streamList div[style*="text-align: center"] { color: #888e99 !important; }
+    `;
+
+    const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
+    const thumbnailCache = JSON.parse(localStorage.getItem('thumbnailCache') || '{}');
+    const CACHE_EXPIRY = 300000;
+    const FETCH_TIMEOUT = 10000;
+    const THUMBNAIL_TIMEOUT = 15000;
+    const DEFAULT_THUMBNAIL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAAA4CAMAAAAPRHmFAAAAM1BMVEX///+ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZ0B4eAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAMpJREFUeNrt0sESgCAIBLEcQPD/v7ZKkISXTZN15O5K8sFfAQC+5kFAD8H5XwICAgICAvI/BAQEBASkPwgICAgISC8QEBAYooDhN+AQQKkQAYsHwkL4cCAgICAgIP1CQEBAQEBaBwQEBAQEBAQEBAQEBAQEBOT/FBAQEBAQEIABFQQEBAQE5J8UEBAQEBAQkD4gICAgIK0DAgICAgJSHwQEBAQEBH4UEBAQEBD4RUBAQEBA+AsEBAQEBKQvEBAQEBCQ+wL4H6zP4dAcIQAAAABJRU5ErkJggg==';
+
+    const panel = document.createElement('div');
+    panel.id = 'customPlayerPanel';
+    document.body.appendChild(panel);
+
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = styles;
+    document.head.appendChild(styleSheet);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.id = 'buttonContainer';
+    panel.appendChild(buttonContainer);
+
+    const spotvnowButton = document.createElement('button');
+    spotvnowButton.id = 'spotvnowButton';
+    spotvnowButton.title = 'Spotvnow 목록 열기/닫기';
+    const buttonImg = document.createElement('img');
+    buttonImg.src = 'https://images.icon-icons.com/3478/PNG/512/checklist_list_orderlist_order_icon_219982.png';
+    buttonImg.alt = '목록';
+    spotvnowButton.appendChild(buttonImg);
+    buttonContainer.appendChild(spotvnowButton);
+
+    const refreshButton = document.createElement('button');
+    refreshButton.id = 'refreshButton';
+    refreshButton.title = '목록 새로고침';
+    const refreshImg = document.createElement('img');
+    refreshImg.src = 'https://cdn-icons-png.flaticon.com/512/61/61444.png';
+    refreshImg.alt = '새로고침';
+    refreshButton.appendChild(refreshImg);
+    buttonContainer.appendChild(refreshButton);
+
+    const closeButton = document.createElement('button');
+    closeButton.id = 'closeButton';
+    closeButton.title = '목록 닫기';
+    const closeImg = document.createElement('img');
+    closeImg.src = 'https://cdn-icons-png.flaticon.com/512/1828/1828778.png';
+    closeImg.alt = '닫기';
+    closeButton.appendChild(closeImg);
+    panel.appendChild(closeButton);
+
+    const list = document.createElement('div');
+    list.id = 'streamList';
+    panel.appendChild(list);
+
+    function isCacheValid(cacheEntry) { return cacheEntry && (Date.now() - cacheEntry.timestamp < CACHE_EXPIRY); }
+    function createStreamItemHTML(stream) {
+        if (!stream || !stream.id) return '';
+        const channelNum = stream.id.replace('lcspo', '');
+        return `
+            <div class="streamItem" data-channel-num="${channelNum}" title="Spotvnow 채널 ${channelNum}">
+                <img src="${stream.image || DEFAULT_THUMBNAIL}" class="thumbnail" alt="Thumbnail" onerror="this.onerror=null; this.src='${DEFAULT_THUMBNAIL}';">
+                <div class="streamInfo">
+                    <div class="streamTitle">Spotvnow 채널 ${channelNum}</div>
+                    <div class="streamerName">${stream.streamer || `ch${channelNum}`}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function updateStreamListDOM(streams) {
+        const validStreams = streams.filter(s => s && s.id);
+        validStreams.sort((a, b) => parseInt(a.id.replace('lcspo', '')) - parseInt(b.id.replace('lcspo', '')));
+
+        const listHTML = validStreams.map(createStreamItemHTML).join('');
+        list.innerHTML = listHTML || '<div style="padding: 10px; text-align: center; color: #888e99;">라이브 스트림이 없습니다.</div>';
+
+        list.querySelectorAll('.streamItem').forEach(item => {
+            item.addEventListener('click', () => {
+                const channelNumStr = item.dataset.channelNum;
+                if (!channelNumStr) { console.error("No channel number found.", item); return; }
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar) { console.error("Sidebar element (#sidebar) not found."); return; }
+
+                const targetButton = sidebar.querySelector(`.channel-button[data-url*="ch${channelNumStr.padStart(2, '0')}-nlivecdn"]`);
+
+                if (targetButton && typeof targetButton.click === 'function') {
+                    console.log(`Found button (.channel-button) for channel ${channelNumStr}, clicking...`);
+                    targetButton.click();
+                    closeButton.click();
+                } else {
+                    console.error(`Button (.channel-button) for channel ${channelNumStr} not found or not clickable.`);
+                    alert(`플레이어 페이지에서 채널 ${channelNumStr} 버튼(.channel-button)을 찾을 수 없습니다.`);
+                }
+            });
+        });
+    };
+
+    function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
+        return new Promise((resolve, reject) => {
+            const controller = new AbortController(); const signal = controller.signal;
+            const timer = setTimeout(() => { controller.abort(); reject(new Error(`Request timed out after ${timeout}ms`)); }, timeout);
+            GM_xmlhttpRequest({
+                method: "GET", url: url, signal: signal,
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' },
+                onload: (response) => { clearTimeout(timer); if (response.status >= 200 && response.status < 300) resolve(response.responseText); else reject(new Error(`Request failed with status ${response.status} for ${url}`)); },
+                onerror: (error) => { clearTimeout(timer); reject(new Error(`Request failed for ${url}: ${error.error || 'Unknown'}`)); },
+                onabort: () => clearTimeout(timer),
+                ontimeout: () => { clearTimeout(timer); reject(new Error(`GM_xmlhttpRequest timed out for ${url}`)); }
+            });
+        });
+    }
+    async function generateHlsThumbnail(m3u8Url, cacheKey) {
+        const cached = thumbnailCache[cacheKey];
+        if (cached && isCacheValid(cached)) return cached.data;
+        if (!window.Hls || !Hls.isSupported()) { console.warn("HLS.js not supported."); return DEFAULT_THUMBNAIL; }
+        return new Promise(resolve => {
+            const video = document.createElement('video'); video.muted = true; video.preload = 'metadata'; video.crossOrigin = 'anonymous'; video.width = 160; video.height = 90; video.style.position = 'fixed'; video.style.left = '-9999px'; document.body.appendChild(video);
+            const hls = new Hls({}); let timeoutHandle = setTimeout(() => { console.warn(`Thumb timeout ${cacheKey}`); cleanup(); resolve(DEFAULT_THUMBNAIL); }, THUMBNAIL_TIMEOUT); let cleanedUp = false;
+            const cleanup = () => { if (cleanedUp) return; cleanedUp = true; clearTimeout(timeoutHandle); if (hls) hls.destroy(); if (video) { video.removeEventListener('loadeddata', onLoadedData); video.removeEventListener('seeked', onSeeked); video.removeEventListener('error', onError); video.pause(); video.removeAttribute('src'); video.load(); video.remove(); } };
+            const onLoadedData = () => { video.removeEventListener('loadeddata', onLoadedData); const seekTime = Math.min(video.duration >= 2 ? 2 : (video.duration / 2), 5); if (video.seekable && video.seekable.length > 0 && isFinite(seekTime)) { try { let canSeek = false; for (let i = 0; i < video.seekable.length; i++) if (seekTime >= video.seekable.start(i) && seekTime <= video.seekable.end(i)) { canSeek = true; break; } if (canSeek) video.currentTime = seekTime; else { console.warn(`Seek time invalid ${cacheKey}.`); video.currentTime = video.seekable.start(0); } } catch (e) { console.error(`Seek error ${cacheKey}:`, e); cleanup(); resolve(DEFAULT_THUMBNAIL); } } else { console.warn(`Not seekable ${cacheKey}`); cleanup(); resolve(DEFAULT_THUMBNAIL); } };
+            const onSeeked = () => { if (cleanedUp) return; requestAnimationFrame(() => { if (cleanedUp) return; const canvas = document.createElement('canvas'); canvas.width = video.width; canvas.height = video.height; const ctx = canvas.getContext('2d'); try { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); const pixelData = imageData.data; let isBlank = true; for (let i = 0; i < pixelData.length; i += 4 * Math.floor(pixelData.length / 100)) if (pixelData[i] !== 0 || pixelData[i+1] !== 0 || pixelData[i+2] !== 0) if (pixelData[i] !== 255 || pixelData[i+1] !== 255 || pixelData[i+2] !== 255) { isBlank = false; break; } if (dataUrl.length < 200 || isBlank) { console.warn(`Thumb blank/small ${cacheKey}`); cleanup(); resolve(DEFAULT_THUMBNAIL); } else { thumbnailCache[cacheKey] = { data: dataUrl, timestamp: Date.now() }; try { localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); } catch (e) { console.error("Saving thumb cache:", e); } cleanup(); resolve(dataUrl); } } catch (e) { console.error(`Canvas draw error ${cacheKey}:`, e); cleanup(); resolve(DEFAULT_THUMBNAIL); } }); };
+            const onError = (e) => { console.error(`Video error ${cacheKey}:`, video.error || e); cleanup(); resolve(DEFAULT_THUMBNAIL); };
+            video.addEventListener('loadeddata', onLoadedData); video.addEventListener('seeked', onSeeked); video.addEventListener('error', onError);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(e => { /* Autoplay prevented, fine */ }); });
+            hls.on(Hls.Events.ERROR, (event, data) => { console.error(`HLS.js error ${cacheKey}: T:${data.type}, D:${data.details}`, data); if (data.fatal || data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) if (!cleanedUp) { cleanup(); resolve(DEFAULT_THUMBNAIL); } });
+            hls.loadSource(m3u8Url); hls.attachMedia(video);
+        });
+    }
+    async function fetchSpotvnowLive(num) {
+        const id = `lcspo${num.toString().padStart(2, '0')}`;
+        const cached = liveStatusCache[id];
+        if (isCacheValid(cached)) { if (cached.data && thumbnailCache[id] && !isCacheValid(thumbnailCache[id])) { cached.data.image = await generateHlsThumbnail(cached.data.m3u8Url, id); } else if (cached.data && !cached.data.image && thumbnailCache[id]) { cached.data.image = thumbnailCache[id].data; } return cached.data; }
+        const pNum = num.toString().padStart(2, '0');
+        const url = `https://ch${pNum}-nlivecdn.spotvnow.co.kr/ch${pNum}/decr/medialist_14173921312004482655_hls.m3u8`;
+        try { await fetchWithTimeout(url, FETCH_TIMEOUT); const thumb = await generateHlsThumbnail(url, id); if (thumb === DEFAULT_THUMBNAIL) { console.log(`Ch ${pNum} no thumb. Offline.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return null; } const data = { title: `Spotvnow Channel ${num}`, from: 'muzso', image: thumb, streamer: `Spotvnow ch${pNum}`, viewers: 'N/A', url: `/muzso/${id}`, id: id, m3u8Url: url }; liveStatusCache[id] = { data: data, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return data; } catch (err) { console.log(`Fetch fail Ch ${pNum}: ${err.message}. Offline.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); delete thumbnailCache[id]; localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); return null; }
+    }
+
+    let loadingInterval = null;
+    async function updateSpotvnowList() {
+        list.style.display = 'block';
+        closeButton.style.display = 'block';
+        refreshButton.style.display = 'flex';
+
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888e99;">로딩 중<span id="loadingDots">.</span></div>';
+        loadingInterval && clearInterval(loadingInterval);
+        const dotsSpan = list.querySelector('#loadingDots');
+        let dotCount = 1;
+        loadingInterval = setInterval(() => {
+            dotCount = (dotCount % 3) + 1;
+            if (dotsSpan) dotsSpan.textContent = '.'.repeat(dotCount);
+        }, 500);
+
+        const channelNumbers = Array.from({ length: 40 }, (_, i) => i + 1);
+        const fetchPromises = channelNumbers.map(num => fetchSpotvnowLive(num).catch(err => { console.error(`Fetch err ch ${num}:`, err); return null; }));
+        const results = await Promise.allSettled(fetchPromises);
+        loadingInterval && clearInterval(loadingInterval); loadingInterval = null;
+        const liveStreams = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
+        updateStreamListDOM(liveStreams);
+    }
+
+    spotvnowButton.addEventListener('click', () => { if (list.style.display === 'block') closeButton.click(); else updateSpotvnowList(); });
+    refreshButton.addEventListener('click', () => { Object.keys(liveStatusCache).forEach(key => { liveStatusCache[key].timestamp = 0; }); Object.keys(thumbnailCache).forEach(key => { thumbnailCache[key].timestamp = 0; }); console.log("Cache cleared, refreshing..."); updateSpotvnowList(); });
+    closeButton.addEventListener('click', () => { list.style.display = 'none'; closeButton.style.display = 'none'; refreshButton.style.display = 'none'; loadingInterval && clearInterval(loadingInterval); loadingInterval = null; });
+
+    console.log("Custom Spotvnow List script initialized (Dark Theme Fixed).");
+
+    const sidebar = document.getElementById('sidebar');
+    if (panel && sidebar) {
+        const computedPanelStyle = getComputedStyle(panel);
+        const initialPanelLeftPx = parseInt(computedPanelStyle.left, 10) || 10;
+        console.log(`Initial Panel Left: ${initialPanelLeftPx}px`);
+        const adjustPanelPosition = () => {
+            const panelWidth = panel.offsetWidth;
+            requestAnimationFrame(() => {
+                if (sidebar.classList.contains('is-collapsed')) {
+                    panel.style.left = `-${panelWidth + 20}px`;
+                } else {
+                    panel.style.left = `${initialPanelLeftPx}px`;
+                }
+            });
+        };
+        adjustPanelPosition();
+        const observer = new MutationObserver((mutationsList) => {
+            for (const mutation of mutationsList) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    adjustPanelPosition();
+                    break;
+                }
+            }
+        });
+        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+        console.log("MutationObserver started for iframe sidebar class changes.");
+    } else {
+        if (!panel) console.error("Tampermonkey panel (#customPlayerPanel) not found.");
+        if (!sidebar) console.error("Sidebar element (#sidebar) not found inside iframe.");
+        console.error("Cannot link panel position to iframe sidebar state.");
+    }
+    const now = Date.now(); let changed = false;
+    Object.keys(liveStatusCache).forEach(key => { if (!liveStatusCache[key] || now - liveStatusCache[key].timestamp >= CACHE_EXPIRY * 5) { delete liveStatusCache[key]; changed = true; } });
+    Object.keys(thumbnailCache).forEach(key => { if (!thumbnailCache[key] || now - thumbnailCache[key].timestamp >= CACHE_EXPIRY * 5) { delete thumbnailCache[key]; changed = true; } });
+    if (changed) { localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); console.log("Cleaned up old cache entries."); }
+
+})();
