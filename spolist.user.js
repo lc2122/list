@@ -16,24 +16,24 @@
     const styles = `
         #customPlayerPanel {
             position: fixed;
-            top: 5px;       /* 화면 상단 기준 위치 */
-            left: 190px;     /* 화면 왼쪽 기준 위치 (조정 가능) */
-            background: #14161A; /* ★★★ 부모 사이드바 배경색 ★★★ */
+            top: 5px;      
+            left: 190px;   
+            background: #14161A;
             z-index: 10000;
             font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             border-radius: 3px;
-            color: #c5c8cc; /* ★★★ 기본 밝은 텍스트 색상 ★★★ */
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3); /* 그림자 약간 어둡게 */
-            transition: left 0.3s ease; /* 사이드바 연동 애니메이션 */
+            color: #c5c8cc;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            transition: left 0.3s ease; 
         }
         #customPlayerPanel #buttonContainer { display: flex; align-items: center; width: fit-content; height: 28px; }
-        /* --- 버튼 배경/테두리/텍스트 색상 변경 --- */
+
         #customPlayerPanel #spotvnowButton, #customPlayerPanel #refreshButton {
-            background: #2a2d33; /* 약간 밝은 어두운 배경 */
-            border: 1px solid #4b505a; /* 어두운 테두리 */
-            color: #c5c8cc; /* 밝은 아이콘/텍스트 */
+            background: #2a2d33;
+            border: 1px solid #4b505a; 
+            color: #c5c8cc; 
             cursor: pointer;
             width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
             font-size: 12px; font-weight: bold; padding: 0;
@@ -41,50 +41,45 @@
         }
         #customPlayerPanel #spotvnowButton img, #customPlayerPanel #refreshButton img {
             width: 20px; height: 20px;
-            /* 아이콘이 어두운 색일 경우 밝게 보이도록 */
-            filter: brightness(0) invert(0.8); /* 예시: 약간 회색빛 도는 흰색 */
+            filter: brightness(0) invert(0.8);
         }
         #customPlayerPanel #spotvnowButton:hover, #customPlayerPanel #refreshButton:hover {
-            background: #3c4047; /* 호버 시 약간 더 밝게 */
+            background: #3c4047; 
             border-color: #6a707c;
         }
-        #customPlayerPanel #refreshButton { display: none; margin-left: 5px; } /* 새로고침 버튼 기본 숨김 */
+        #customPlayerPanel #refreshButton { display: none; margin-left: 5px; } 
 
-        /* --- 닫기 버튼 스타일 유지 (빨간색 강조) --- */
         #customPlayerPanel #closeButton {
             position: absolute; top: 2px; right: 2px; background: #ff4d4d; border: none; cursor: pointer;
             width: 23px; height: 23px; display: none; padding: 0; border-radius: 50%; z-index: 10001;
             line-height: 23px; text-align: center;
         }
         #customPlayerPanel #closeButton:hover { background: #cc0000; }
-        #customPlayerPanel #closeButton img { width: 11px; height: 11px; display: inline-block; vertical-align: middle; margin-top: -2px; filter: brightness(0) invert(1); /* 흰색 아이콘 */ }
+        #customPlayerPanel #closeButton img { width: 11px; height: 11px; display: inline-block; vertical-align: middle; margin-top: -2px; filter: brightness(0) invert(1); }
 
-        /* --- 리스트 스타일 변경 --- */
         #customPlayerPanel #streamList {
-            background: #14161A; /* ★★★ 패널과 동일한 배경 ★★★ */
+            background: #14161A; 
             margin-top: 0; display: none; max-height: 500px; overflow-y: auto;
             padding: 5px; width: 400px; border-radius: 0 0 3px 3px;
-            color: #c5c8cc; /* 기본 텍스트 색상 */
+            color: #c5c8cc;
             scrollbar-width: thin;
-            scrollbar-color: #6a707c #2a2d33; /* 스크롤바 색상 */
+            scrollbar-color: #6a707c #2a2d33;
         }
          #customPlayerPanel #streamList::-webkit-scrollbar { width: 6px; }
          #customPlayerPanel #streamList::-webkit-scrollbar-track { background: #2a2d33; border-radius: 3px;}
          #customPlayerPanel #streamList::-webkit-scrollbar-thumb { background-color: #6a707c; border-radius: 3px; }
 
-        /* --- 리스트 아이템 스타일 변경 --- */
         #customPlayerPanel .streamItem {
-            margin: 2px 0; padding: 5px; background: #2a2d33; /* 약간 밝은 어두운 배경 */
+            margin: 2px 0; padding: 5px; background: #2a2d33;
             border-radius: 3px; cursor: pointer; display: flex; align-items: center;
             transition: background-color 0.2s;
         }
-        #customPlayerPanel .streamItem:hover { background: #3c4047; /* 호버 시 약간 더 밝게 */ }
-        #customPlayerPanel .thumbnail { width: 120px; height: 68px; margin-right: 8px; object-fit: cover; flex-shrink: 0; border: 1px solid #4b505a; /* 어두운 테두리 */ }
+        #customPlayerPanel .streamItem:hover { background: #3c4047; }
+        #customPlayerPanel .thumbnail { width: 120px; height: 68px; margin-right: 8px; object-fit: cover; flex-shrink: 0; border: 1px solid #4b505a; }
         #customPlayerPanel .streamInfo { font-size: 12px; line-height: 1.3; }
-        #customPlayerPanel .streamTitle { font-weight: bold; color: #e0e3e6; /* 제목은 조금 더 밝게 */ }
-        #customPlayerPanel .streamerName { color: #a0a5ac; /* 스트리머 이름은 약간 어둡게 */ }
+        #customPlayerPanel .streamTitle { font-weight: bold; color: #e0e3e6; }
+        #customPlayerPanel .streamerName { color: #a0a5ac; }
 
-        /* 로딩/없음 메시지 */
          #customPlayerPanel #streamList div[style*="text-align: center"] { color: #888e99 !important; }
     `;
 
