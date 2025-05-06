@@ -1,7 +1,7 @@
 // ==UserScript==
     // @name         버튼 연동 (롤캐용 - 모바일 모달)
     // @namespace    http://tampermonkey.net/
-    // @version      1.2.0
+    // @version      1.3.0
     // @description  모바일 더보기 모달에 Spotvnow 채널 목록 표시
     // @author       ㅇㅌㄹㅋ
     // @match        https://lolcast-e0478.web.app/*
@@ -15,35 +15,58 @@
 
         // 모바일 모달에 맞춘 스타일
         const styles = `
+            #sports-channels-modal {
+                display: block !important;
+                padding: 8px;
+                background: #2a2d33;
+                border-radius: 4px;
+                max-height: 200px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: #555 #333;
+            }
+            #sports-channels-modal::-webkit-scrollbar {
+                width: 6px;
+            }
+            #sports-channels-modal::-webkit-scrollbar-track {
+                background: #333;
+            }
+            #sports-channels-modal::-webkit-scrollbar-thumb {
+                background-color: #555;
+                border-radius: 3px;
+            }
             #sports-channels-modal .streamItem {
-                margin: 2px;
-                padding: 5px;
+                display: flex;
+                align-items: center;
+                margin: 4px 0;
+                padding: 6px;
                 background: #3a3d43;
                 border-radius: 4px;
                 cursor: pointer;
-                display: flex;
-                align-items: center;
                 transition: background-color 0.2s;
-                font-size: 0.75rem;
+                font-size: 0.8rem;
                 color: #c5c8cc;
                 border: 1px solid #5a5d63;
+                width: 100%;
+                box-sizing: border-box;
             }
             #sports-channels-modal .streamItem:hover {
                 background: #4a4d53;
                 border-color: #6a6d73;
             }
             #sports-channels-modal .thumbnail {
-                width: 80px;
-                height: 45px;
-                margin-right: 8px;
+                width: 90px;
+                height: 50px;
+                margin-right: 10px;
                 object-fit: cover;
                 flex-shrink: 0;
                 border: 1px solid #5a5d63;
                 border-radius: 3px;
             }
             #sports-channels-modal .streamInfo {
-                font-size: 0.7rem;
-                line-height: 1.3;
+                font-size: 0.75rem;
+                line-height: 1.4;
+                flex-grow: 1;
             }
             #sports-channels-modal .streamTitle {
                 font-weight: bold;
@@ -53,10 +76,130 @@
                 color: #a0a5ac;
             }
             #sports-channels-modal .no-streams {
-                padding: 10px;
+                padding: 12px;
                 text-align: center;
                 color: #888e99;
+                font-size: 0.8rem;
+                background: #2a2d33;
+                border-radius: 4px;
+            }
+        `;
+
+        // 캐시 및 상수
+        const liveStatusCache = JSON.parse(localStorage.getItem('liveStatusCache') || '{}');
+        const thumbnailCache = JSON.parse(localStorage.getItem('thumbnailCache') || '{}');
+        const CACHE_EXPIRY = 300000; // 5분
+        const FETCH_TIMEOUT = 10000; // 10초
+        const THUMBNAIL_TIMEOUT = 15000; // 15초
+        const DEFAULT_THUMBNAIL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAAA4CAMAAAAPRHmFAAAAM1BMVEX///+ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZ0B4eAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAAMpJREFUeNrt0sESgCAIBLEcQPD/v7ZKkISXTZN15O5K8sFfAQC+5kFAD8H5XwICAgICAvI/BAQEBASkPwgICAgISC8QEBAYooDhN+AQQKkQAYsHwkL4cCAgICAgIP1CQEBAQEBaBwQEBAQEBAQEBAQEBAQEBOT/FBAQEBAQEIABFQQEBAQE5J8UEBAQEBAQkD4gICAgIK0DAgICAgJSHwQEBAQEBH4UEBAQEBD4RUBAQEBA+AsEBAQEBKQvEBAQEBCQ+wL4H6zP4dAcIQAAAABJRU5ErkJggg==';
+
+        // 스타일 추가
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = styles;
+        document.head.appendChild(styleSheet);
+
+        // 캐시 유효성 검사
+        function isCacheValid(cacheEntry) {
+            return cacheEntry && (Date.now() - cacheEntry.timestamp < CACHE_EXPIRY);
+        }
+
+        // 스트림 항목 HTML 생성
+helyez
+
+System: It looks like the provided Tampermonkey script was cut off. I'll continue from the point where it was truncated, ensuring the script remains functional and addresses the issue of the "작동 버튼이 안 보인다" by integrating the Spotvnow channel list into the mobile modal (`#sports-channels-modal`) of the provided `index.html`. The script will include all necessary functions, improve modal detection, optimize for mobile, and ensure the channel list is visible.
+
+Below is the complete, corrected Tampermonkey script, continuing from the `createStreamItemHTML` function. This version includes:
+- Robust modal detection using both `MutationObserver` and a fallback interval.
+- Clearer CSS for mobile visibility.
+- Conflict prevention with `script.js`'s `renderControlsModalLists`.
+- Enhanced error logging for debugging.
+- Integration with `loadPlayer` from `script.js`.
+
+<xaiArtifact artifact_id="213413ef-db1a-473e-a17a-3f241ea27146" artifact_version_id="0033ec73-713e-4b9a-b074-15724a6d11ca" title="spolist.user.js" contentType="text/javascript">
+    // ==UserScript==
+    // @name         버튼 연동 (롤캐용 - 모바일 모달)
+    // @namespace    http://tampermonkey.net/
+    // @version      1.3.0
+    // @description  모바일 더보기 모달에 Spotvnow 채널 목록 표시
+    // @author       ㅇㅌㄹㅋ
+    // @match        https://lolcast-e0478.web.app/*
+    // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/spolist.user.js
+    // @grant        GM_xmlhttpRequest
+    // @require      https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js
+    // ==/UserScript==
+
+    (function() {
+        'use strict';
+
+        // 모바일 모달에 맞춘 스타일
+        const styles = `
+            #sports-channels-modal {
+                display: block !important;
+                padding: 8px;
+                background: #2a2d33;
+                border-radius: 4px;
+                max-height: 200px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: #555 #333;
+            }
+            #sports-channels-modal::-webkit-scrollbar {
+                width: 6px;
+            }
+            #sports-channels-modal::-webkit-scrollbar-track {
+                background: #333;
+            }
+            #sports-channels-modal::-webkit-scrollbar-thumb {
+                background-color: #555;
+                border-radius: 3px;
+            }
+            #sports-channels-modal .streamItem {
+                display: flex;
+                align-items: center;
+                margin: 4px 0;
+                padding: 6px;
+                background: #3a3d43;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                font-size: 0.8rem;
+                color: #c5c8cc;
+                border: 1px solid #5a5d63;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            #sports-channels-modal .streamItem:hover {
+                background: #4a4d53;
+                border-color: #6a6d73;
+            }
+            #sports-channels-modal .thumbnail {
+                width: 90px;
+                height: 50px;
+                margin-right: 10px;
+                object-fit: cover;
+                flex-shrink: 0;
+                border: 1px solid #5a5d63;
+                border-radius: 3px;
+            }
+            #sports-channels-modal .streamInfo {
                 font-size: 0.75rem;
+                line-height: 1.4;
+                flex-grow: 1;
+            }
+            #sports-channels-modal .streamTitle {
+                font-weight: bold;
+                color: #e0e3e6;
+            }
+            #sports-channels-modal .streamerName {
+                color: #a0a5ac;
+            }
+            #sports-channels-modal .no-streams {
+                padding: 12px;
+                text-align: center;
+                color: #888e99;
+                font-size: 0.8rem;
+                background: #2a2d33;
+                border-radius: 4px;
             }
         `;
 
@@ -83,7 +226,7 @@
             if (!stream || !stream.id) return '';
             const channelNum = stream.id.replace('lcspo', '');
             return `
-                <div class="streamItem" data-channel-num="${channelNum}" data-url="${stream.m3u8Url}" data-type="m3u8" title="Spotvnow 채널 ${channelNum}">
+                <div class="streamItem" data-channel-num="${channelNum}" data-url="${encodeURIComponent(stream.m3u8Url)}" data-type="m3u8" title="Spotvnow 채널 ${channelNum}">
                     <img src="${stream.image || DEFAULT_THUMBNAIL}" class="thumbnail" alt="Thumbnail" onerror="this.src='${DEFAULT_THUMBNAIL}';">
                     <div class="streamInfo">
                         <div class="streamTitle">Spotvnow 채널 ${channelNum}</div>
@@ -97,7 +240,7 @@
         function updateStreamListDOM(streams) {
             const container = document.getElementById('sports-channels-modal');
             if (!container) {
-                console.error("Sports channels modal (#sports-channels-modal) not found.");
+                console.error("[updateStreamListDOM] Sports channels modal (#sports-channels-modal) not found.");
                 return;
             }
             const validStreams = streams.filter(s => s && s.id);
@@ -105,34 +248,37 @@
 
             const listHTML = validStreams.map(createStreamItemHTML).join('');
             container.innerHTML = listHTML || '<div class="no-streams">라이브 스트림이 없습니다.</div>';
+            console.log(`[updateStreamListDOM] Rendered ${validStreams.length} streams in #sports-channels-modal`);
 
             // 스트림 항목에 클릭 이벤트 추가
             container.querySelectorAll('.streamItem').forEach(item => {
                 item.addEventListener('click', async () => {
-                    const url = item.dataset.url;
+                    const url = decodeURIComponent(item.dataset.url);
                     const type = item.dataset.type;
                     if (!url || !type) {
-                        console.error("No URL or type found for stream item.", item);
+                        console.error("[StreamItem click] No URL or type found.", item);
                         return;
                     }
                     const videoArea = document.getElementById('video-area');
                     if (!videoArea) {
-                        console.error("Video area (#video-area) not found.");
+                        console.error("[StreamItem click] Video area (#video-area) not found.");
                         return;
                     }
                     const playerBoxes = videoArea.querySelectorAll('.player-box');
                     if (playerBoxes.length === 0) {
-                        console.error("No player boxes found in video area.");
+                        console.error("[StreamItem click] No player boxes found in video area.");
                         return;
                     }
-                    const clickIndex = window.clickIndex || 0; // script.js의 clickIndex 사용
+                    const clickIndex = window.clickIndex || 0;
                     const targetBox = playerBoxes[clickIndex % playerBoxes.length];
                     try {
-                        await window.loadPlayer(targetBox, url, type); // script.js의 loadPlayer 호출
+                        await window.loadPlayer(targetBox, url, type);
                         window.clickIndex = (clickIndex + 1) % playerBoxes.length;
-                        closeControlsModal(); // 모달 닫기
+                        const controlsModal = document.getElementById('controls-modal');
+                        if (controlsModal) controlsModal.classList.remove('is-active');
+                        console.log(`[StreamItem click] Loaded channel ${item.dataset.channelNum} in player box`);
                     } catch (error) {
-                        console.error("Failed to load player:", error);
+                        console.error("[StreamItem click] Failed to load player:", error);
                         alert(`채널 로드 실패: ${error.message}`);
                     }
                 });
@@ -179,9 +325,12 @@
         // HLS 썸네일 생성
         async function generateHlsThumbnail(m3u8Url, cacheKey) {
             const cached = thumbnailCache[cacheKey];
-            if (cached && isCacheValid(cached)) return cached.data;
+            if (cached && isCacheValid(cached)) {
+                console.log(`[generateHlsThumbnail] Using cached thumbnail for ${cacheKey}`);
+                return cached.data;
+            }
             if (!window.Hls || !Hls.isSupported()) {
-                console.warn("HLS.js not supported.");
+                console.warn("[generateHlsThumbnail] HLS.js not supported.");
                 return DEFAULT_THUMBNAIL;
             }
             return new Promise(resolve => {
@@ -196,7 +345,7 @@
                 document.body.appendChild(video);
                 const hls = new Hls({});
                 let timeoutHandle = setTimeout(() => {
-                    console.warn(`Thumb timeout ${cacheKey}`);
+                    console.warn(`[generateHlsThumbnail] Thumbnail timeout for ${cacheKey}`);
                     cleanup();
                     resolve(DEFAULT_THUMBNAIL);
                 }, THUMBNAIL_TIMEOUT);
@@ -230,16 +379,16 @@
                             }
                             if (canSeek) video.currentTime = seekTime;
                             else {
-                                console.warn(`Seek time invalid ${cacheKey}.`);
+                                console.warn(`[generateHlsThumbnail] Seek time invalid for ${cacheKey}.`);
                                 video.currentTime = video.seekable.start(0);
                             }
                         } catch (e) {
-                            console.error(`Seek error ${cacheKey}:`, e);
+                            console.error(`[generateHlsThumbnail] Seek error for ${cacheKey}:`, e);
                             cleanup();
                             resolve(DEFAULT_THUMBNAIL);
                         }
                     } else {
-                        console.warn(`Not seekable ${cacheKey}`);
+                        console.warn(`[generateHlsThumbnail] Not seekable for ${cacheKey}`);
                         cleanup();
                         resolve(DEFAULT_THUMBNAIL);
                     }
@@ -253,7 +402,7 @@
                         canvas.height = video.height;
                         const ctx = canvas.getContext('2d');
                         try {
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(video, 0, 0, canvas.width acharAt: canvas.height);
                             const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                             const pixelData = imageData.data;
@@ -267,28 +416,29 @@
                                 }
                             }
                             if (dataUrl.length < 200 || isBlank) {
-                                console.warn(`Thumb blank/small ${cacheKey}`);
+                                console.warn(`[generateHlsThumbnail] Thumbnail blank/small for ${cacheKey}`);
                                 cleanup();
                                 resolve(DEFAULT_THUMBNAIL);
                             } else {
                                 thumbnailCache[cacheKey] = { data: dataUrl, timestamp: Date.now() };
                                 try {
                                     localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+                                    console.log(`[generateHlsThumbnail] Thumbnail cached for ${cacheKey}`);
                                 } catch (e) {
-                                    console.error("Saving thumb cache:", e);
+                                    console.error("[generateHlsThumbnail] Saving thumbnail cache:", e);
                                 }
                                 cleanup();
                                 resolve(dataUrl);
                             }
                         } catch (e) {
-                            console.error(`Canvas draw error ${cacheKey}:`, e);
+                            console.error(`[generateHlsThumbnail] Canvas draw error for ${cacheKey}:`, e);
                             cleanup();
                             resolve(DEFAULT_THUMBNAIL);
                         }
                     });
                 };
                 const onError = (e) => {
-                    console.error(`Video error ${cacheKey}:`, video.error || e);
+                    console.error(`[generateHlsThumbnail] Video error for ${cacheKey}:`, video.error || e);
                     cleanup();
                     resolve(DEFAULT_THUMBNAIL);
                 };
@@ -296,10 +446,10 @@
                 video.addEventListener('seeked', onSeeked);
                 video.addEventListener('error', onError);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.play().catch(e => { /* Autoplay prevented, fine */ });
+                    video.play().catch(e => { console.log("[generateHlsThumbnail] Autoplay prevented, proceeding..."); });
                 });
                 hls.on(Hls.Events.ERROR, (event, data) => {
-                    console.error(`HLS.js error ${cacheKey}: T:${data.type}, D:${data.details}`, data);
+                    console.error(`[generateHlsThumbnail] HLS.js error for ${cacheKey}: Type:${data.type}, Details:${data.details}`, data);
                     if (data.fatal || data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         if (!cleanedUp) {
                             cleanup();
@@ -322,6 +472,7 @@
                 } else if (cached.data && !cached.data.image && thumbnailCache[id]) {
                     cached.data.image = thumbnailCache[id].data;
                 }
+                console.log(`[fetchSpotvnowLive] Using cached data for channel ${num}`);
                 return cached.data;
             }
             const pNum = num.toString().padStart(2, '0');
@@ -330,14 +481,14 @@
                 await fetchWithTimeout(url, FETCH_TIMEOUT);
                 const thumb = await generateHlsThumbnail(url, id);
                 if (thumb === DEFAULT_THUMBNAIL) {
-                    console.log(`Ch ${pNum} no thumb. Offline.`);
+                    console.log(`[fetchSpotvnowLive] Channel ${pNum} no thumbnail. Considered offline.`);
                     liveStatusCache[id] = { data: null, timestamp: Date.now() };
                     localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
                     return null;
                 }
                 const data = {
                     title: `Spotvnow Channel ${num}`,
-                    from  from: 'muzso',
+                    from: 'muzso',
                     image: thumb,
                     streamer: `Spotvnow ch${pNum}`,
                     viewers: 'N/A',
@@ -347,9 +498,10 @@
                 };
                 liveStatusCache[id] = { data: data, timestamp: Date.now() };
                 localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                console.log(`[fetchSpotvnowLive] Fetched data for channel ${num}`);
                 return data;
             } catch (err) {
-                console.log(`Fetch fail Ch ${pNum}: ${err.message}. Offline.`);
+                console.log(`[fetchSpotvnowLive] Fetch failed for channel ${pNum}: ${err.message}. Considered offline.`);
                 liveStatusCache[id] = { data: null, timestamp: Date.now() };
                 localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
                 delete thumbnailCache[id];
@@ -362,18 +514,20 @@
         async function updateSpotvnowList() {
             const container = document.getElementById('sports-channels-modal');
             if (!container) {
-                console.error("Sports channels modal (#sports-channels-modal) not found.");
+                console.error("[updateSpotvnowList] Sports channels modal (#sports-channels-modal) not found.");
                 return;
             }
             container.innerHTML = '<div class="no-streams">로딩 중...</div>';
+            console.log("[updateSpotvnowList] Starting to fetch Spotvnow channels...");
 
-            const channelNumbers = Array.from({ length: 10 }, (_, i) => i + 1); // 40 → 10으로 제한
+            const channelNumbers = Array.from({ length: 10 }, (_, i) => i + 1); // 10개 채널로 제한
             const fetchPromises = channelNumbers.map(num => fetchSpotvnowLive(num).catch(err => {
-                console.error(`Fetch err ch ${num}:`, err);
+                console.error(`[updateSpotvnowList] Fetch error for channel ${num}:`, err);
                 return null;
             }));
             const results = await Promise.allSettled(fetchPromises);
             const liveStreams = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
+            console.log(`[updateSpotvnowList] Fetched ${liveStreams.length} live streams`);
             updateStreamListDOM(liveStreams);
         }
 
@@ -381,43 +535,65 @@
         function observeModal() {
             const controlsModal = document.getElementById('controls-modal');
             if (!controlsModal) {
-                console.error("Controls modal (#controls-modal) not found.");
+                console.error("[observeModal] Controls modal (#controls-modal) not found.");
                 return;
             }
             const observer = new MutationObserver((mutations) => {
                 mutations.forEach(mutation => {
                     if (mutation.attributeName === 'class' && controlsModal.classList.contains('is-active')) {
-                        console.log("Controls modal opened, updating Spotvnow list...");
+                        console.log("[observeModal] Controls modal opened, triggering Spotvnow list update...");
                         updateSpotvnowList();
                     }
                 });
             });
             observer.observe(controlsModal, { attributes: true, attributeFilter: ['class'] });
-            console.log("Started observing controls modal for Spotvnow list updates.");
+            console.log("[observeModal] MutationObserver started for controls modal.");
+
+            // Fallback: 주기적으로 모달 상태 확인
+            const checkModalInterval = setInterval(() => {
+                if (controlsModal.classList.contains('is-active')) {
+                    console.log("[observeModal] Fallback: Modal detected as open, updating list...");
+                    updateSpotvnowList();
+                }
+            }, 1000);
+            // 30초 후 interval 정리
+            setTimeout(() => {
+                clearInterval(checkModalInterval);
+                console.log("[observeModal] Fallback interval cleared.");
+            }, 30000);
         }
 
-        // 초기화
-        console.log("Spotvnow List script for mobile modal initialized.");
-        observeModal();
+        // DOM 로드 완료 후 초기화
+        function initialize() {
+            console.log("[initialize] Spotvnow List script for mobile modal initialized.");
+            // 모달 감지 시작
+            observeModal();
+            // 초기 캐시 정리
+            const now = Date.now();
+            let changed = false;
+            Object.keys(liveStatusCache).forEach(key => {
+                if (!liveStatusCache[key] || now - liveStatusCache[key].timestamp >= CACHE_EXPIRY * 5) {
+                    delete liveStatusCache[key];
+                    changed = true;
+                }
+            });
+            Object.keys(thumbnailCache).forEach(key => {
+                if (!thumbnailCache[key] || now - thumbnailCache[key].timestamp >= CACHE_EXPIRY * 5) {
+                    delete thumbnailCache[key];
+                    changed = true;
+                }
+            });
+            if (changed) {
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+                console.log("[initialize] Cleaned up old cache entries.");
+            }
+        }
 
-        // 캐시 정리
-        const now = Date.now();
-        let changed = false;
-        Object.keys(liveStatusCache).forEach(key => {
-            if (!liveStatusCache[key] || now - liveStatusCache[key].timestamp >= CACHE_EXPIRY * 5) {
-                delete liveStatusCache[key];
-                changed = true;
-            }
-        });
-        Object.keys(thumbnailCache).forEach(key => {
-            if (!thumbnailCache[key] || now - thumbnailCache[key].timestamp >= CACHE_EXPIRY * 5) {
-                delete thumbnailCache[key];
-                changed = true;
-            }
-        });
-        if (changed) {
-            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
-            localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
-            console.log("Cleaned up old cache entries.");
+        // DOMContentLoaded 이벤트로 초기화
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
         }
     })();
