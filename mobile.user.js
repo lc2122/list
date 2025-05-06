@@ -4,7 +4,7 @@
 // @version      1.1
 // @description  모바일 Spotvnow 라이브 상태 확인 기능
 // @author       ㅇㅌㄹㅋ
-// @match        https://lolcast-e0478.web.app/m
+// @match        https://lolcast-e0478.web.app/*
 // @downloadURL  https://raw.githubusercontent.com/lc2122/list/main/mobile.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
