@@ -21,10 +21,10 @@ https://raw.githubusercontent.com/lc2122/list/main/chzzkalarm.user.js
 https://greasyfork.org/en/scripts/505975-lolcast-macro
 <br>
 
-3. 롤캐 리스트 
+3. 스포티비 리스트 
 <br>
-https://raw.githubusercontent.com/lc2122/list/main/lolcast_list.user.js
-<br>기존 롤캐스트림 리스트 + 롤캐 장주들 추가 + 옥냥이 추가 + KICK탭(KICK 리스트+스포티비) 
+https://github.com/lc2122/list/blob/main/spolist.user.js
+<br>스포티비 리스트
 
 <br>
 4. 치지직 넓은 화면 모드+롤캐 사이드바 설정
