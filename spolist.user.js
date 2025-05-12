@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         버튼 연동 (롤캐용)
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.2.1
 // @description  스포티비 + 쿠팡플레이 확인용
 // @author       ㅇㅌㄹㅋ
 // @match        https://lolcast-e0478.web.app/*
@@ -415,11 +415,46 @@
     if (panel && sidebar) {
         const computedPanelStyle = getComputedStyle(panel);
         const initialPanelLeftPx = parseInt(computedPanelStyle.left, 10) || 190;
-        const adjustPanelPosition = () => { requestAnimationFrame(() => { if (sidebar.classList.contains('is-collapsed')) { panel.style.left = `10px`; } else { panel.style.left = `${initialPanelLeftPx}px`; } }); };
+
+        const adjustPanelPosition = () => {
+            requestAnimationFrame(() => { // Keep using requestAnimationFrame for smooth updates
+                if (sidebar.classList.contains('is-collapsed')) {
+                    // --- MODIFICATION START ---
+                    // Sidebar is collapsed: Hide the panel
+                    panel.style.display = 'none';
+                    // We don't strictly need to set 'left' when it's hidden, but it doesn't hurt
+                    // panel.style.left = `10px`; // Or remove this line if preferred
+                    // --- MODIFICATION END ---
+                } else {
+                    // --- MODIFICATION START ---
+                    // Sidebar is expanded: Show the panel and set its position
+                    panel.style.display = 'flex'; // Use 'flex' as it's the default display in your CSS
+                    panel.style.left = `${initialPanelLeftPx}px`;
+                    // --- MODIFICATION END ---
+                }
+            });
+        };
+
+        // Call it once initially to set the correct state on load
         adjustPanelPosition();
-        const observer = new MutationObserver((mutationsList) => { for (const mutation of mutationsList) { if (mutation.type === 'attributes' && mutation.attributeName === 'class') { adjustPanelPosition(); break; } } });
+
+        const observer = new MutationObserver((mutationsList) => {
+            for (const mutation of mutationsList) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    adjustPanelPosition(); // Call the updated function
+                    break; // No need to check other mutations if class changed
+                }
+            }
+        });
+
+        // Observe the sidebar for class attribute changes
         observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
-    } else { if (!panel) console.error("Panel not found."); if (!sidebar) console.error("Sidebar not found."); }
+
+    } else {
+        // Keep error logging
+        if (!panel) console.error("Custom panel element (#customPlayerPanel) not found.");
+        if (!sidebar) console.error("Sidebar element (#sidebar) not found.");
+    }
 
     const now = Date.now(); let changed = false; const veryOldThreshold = CACHE_EXPIRY * 5;
     Object.keys(liveStatusCache).forEach(key => { if (!liveStatusCache[key] || now - (liveStatusCache[key].timestamp || 0) >= veryOldThreshold) { delete liveStatusCache[key]; changed = true; } });
