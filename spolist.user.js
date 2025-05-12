@@ -171,7 +171,9 @@
     list.id = 'streamList';
     panel.appendChild(list);
 
-    function isCacheValid(cacheEntry) { return cacheEntry && (Date.now() - cacheEntry.timestamp < CACHE_EXPIRY); }
+    function isCacheValid(cacheEntry) {
+        return cacheEntry && (Date.now() - cacheEntry.timestamp < CACHE_EXPIRY);
+    }
 
     function createStreamItemHTML(stream) {
         if (!stream || !stream.id) return '';
@@ -278,15 +280,34 @@
 
     function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
         return new Promise((resolve, reject) => {
-            const controller = new AbortController(); const signal = controller.signal;
-            const timer = setTimeout(() => { controller.abort(); reject(new Error(`Request timed out after ${timeout}ms for ${url}`)); }, timeout);
+            const controller = new AbortController();
+            const signal = controller.signal;
+            const timer = setTimeout(() => {
+                controller.abort();
+                reject(new Error(`Request timed out after ${timeout}ms for ${url}`));
+            }, timeout);
             GM_xmlhttpRequest({
-                method: "GET", url: url, signal: signal,
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' },
-                onload: (response) => { clearTimeout(timer); if (response.status >= 200 && response.status < 300) resolve(response.responseText); else reject(new Error(`Request failed with status ${response.status} for ${url}`)); },
-                onerror: (error) => { clearTimeout(timer); reject(new Error(`Request failed for ${url}: ${error.error || 'Unknown'}`)); },
-                onabort: () => { clearTimeout(timer); console.warn(`Request aborted for ${url}`); },
-                ontimeout: () => { /* Handled by controller */ }
+                method: "GET",
+                url: url,
+                signal: signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                },
+                onload: (response) => {
+                    clearTimeout(timer);
+                    if (response.status >= 200 && response.status < 300) resolve(response.responseText);
+                    else reject(new Error(`Request failed with status ${response.status} for ${url}`));
+                },
+                onerror: (error) => {
+                    clearTimeout(timer);
+                    reject(new Error(`Request failed for ${url}: ${error.error || 'Unknown'}`));
+                },
+                onabort: () => {
+                    clearTimeout(timer);
+                    console.warn(`Request aborted for ${url}`);
+                },
+                ontimeout: () => {
+                    /* Handled by controller */ }
             });
         });
     }
@@ -294,61 +315,153 @@
     async function generateHlsThumbnail(m3u8Url, cacheKey) {
         const cached = thumbnailCache[cacheKey];
         if (cached && isCacheValid(cached)) return cached.data;
-        if (!window.Hls || !Hls.isSupported()) { console.warn("HLS.js not supported."); return DEFAULT_THUMBNAIL; }
+        if (!window.Hls || !Hls.isSupported()) {
+            console.warn("HLS.js not supported.");
+            return DEFAULT_THUMBNAIL;
+        }
 
         return new Promise(resolve => {
-            const video = document.createElement('video'); video.muted = true; video.preload = 'metadata'; video.crossOrigin = 'anonymous'; video.width = 160; video.height = 90; video.style.position = 'fixed'; video.style.left = '-9999px'; video.style.opacity = '0'; document.body.appendChild(video);
-            const hls = new Hls({ debug: false, enableWorker: true, lowLatencyMode: false, liveSyncDurationCount: 1, liveMaxLatencyDurationCount: 2 });
-            let timeoutHandle = setTimeout(() => { console.warn(`Thumbnail generation timed out for ${cacheKey}`); cleanup(); resolve(DEFAULT_THUMBNAIL); }, THUMBNAIL_TIMEOUT);
+            const video = document.createElement('video');
+            video.muted = true;
+            video.preload = 'metadata';
+            video.crossOrigin = 'anonymous';
+            video.width = 160;
+            video.height = 90;
+            video.style.position = 'fixed';
+            video.style.left = '-9999px';
+            video.style.opacity = '0';
+            document.body.appendChild(video);
+            const hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: false,
+                liveSyncDurationCount: 1,
+                liveMaxLatencyDurationCount: 2
+            });
+            let timeoutHandle = setTimeout(() => {
+                console.warn(`Thumbnail generation timed out for ${cacheKey}`);
+                cleanup();
+                resolve(DEFAULT_THUMBNAIL);
+            }, THUMBNAIL_TIMEOUT);
             let cleanedUp = false;
 
             const cleanup = () => {
                 if (cleanedUp) return;
                 cleanedUp = true;
                 clearTimeout(timeoutHandle);
-                if (hls) { hls.destroy(); }
+                if (hls) {
+                    hls.destroy();
+                }
                 if (video) {
                     video.removeEventListener('loadeddata', onLoadedData);
                     video.removeEventListener('seeked', onSeeked);
                     video.removeEventListener('error', onError);
-                    video.pause(); video.removeAttribute('src');
-                    try { video.load(); } catch (e) { /* ignore */ }
+                    video.pause();
+                    video.removeAttribute('src');
+                    try {
+                        video.load();
+                    } catch (e) {
+                        /* ignore */ }
                     video.remove();
                 }
             };
 
             const onLoadedData = () => {
-                video.removeEventListener('loadeddata', onLoadedData); if (cleanedUp) return;
-                const seekTime = Math.min( (video.duration >= 1 && isFinite(video.duration)) ? 0.5 : 0, 5);
+                video.removeEventListener('loadeddata', onLoadedData);
+                if (cleanedUp) return;
+                const seekTime = Math.min((video.duration >= 1 && isFinite(video.duration)) ? 0.5 : 0, 5);
                 if (video.seekable && video.seekable.length > 0 && isFinite(seekTime)) {
                     try {
                         let canSeek = false;
-                        for (let i = 0; i < video.seekable.length; i++) { if (seekTime >= video.seekable.start(i) && seekTime <= video.seekable.end(i)) { canSeek = true; break; } }
-                        if (canSeek) video.currentTime = seekTime; else video.currentTime = video.seekable.start(0);
-                    } catch (e) { console.error(`Seek error for ${cacheKey}:`, e); cleanup(); resolve(DEFAULT_THUMBNAIL); }
-                } else { console.warn(`Video not seekable or invalid duration for ${cacheKey}. Trying to capture as is.`); onSeeked(); }
+                        for (let i = 0; i < video.seekable.length; i++) {
+                            if (seekTime >= video.seekable.start(i) && seekTime <= video.seekable.end(i)) {
+                                canSeek = true;
+                                break;
+                            }
+                        }
+                        if (canSeek) video.currentTime = seekTime;
+                        else video.currentTime = video.seekable.start(0);
+                    } catch (e) {
+                        console.error(`Seek error for ${cacheKey}:`, e);
+                        cleanup();
+                        resolve(DEFAULT_THUMBNAIL);
+                    }
+                } else {
+                    console.warn(`Video not seekable or invalid duration for ${cacheKey}. Trying to capture as is.`);
+                    onSeeked();
+                }
             };
             const onSeeked = () => {
                 if (cleanedUp) return;
                 requestAnimationFrame(() => {
                     if (cleanedUp) return;
-                    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth || video.width; canvas.height = video.videoHeight || video.height;
-                    if (canvas.width === 0 || canvas.height === 0) { console.warn(`Canvas dimensions are zero for ${cacheKey}.`); cleanup(); resolve(DEFAULT_THUMBNAIL); return; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth || video.width;
+                    canvas.height = video.videoHeight || video.height;
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        console.warn(`Canvas dimensions are zero for ${cacheKey}.`);
+                        cleanup();
+                        resolve(DEFAULT_THUMBNAIL);
+                        return;
+                    }
                     const ctx = canvas.getContext('2d');
                     try {
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                        if (dataUrl.length < 200) { console.warn(`Generated thumbnail is too small for ${cacheKey}. Likely blank.`); cleanup(); resolve(DEFAULT_THUMBNAIL); }
-                        else { thumbnailCache[cacheKey] = { data: dataUrl, timestamp: Date.now() }; try { localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); } catch (e) { console.error("Error saving thumbnail to localStorage:", e); } cleanup(); resolve(dataUrl); }
-                    } catch (e) { console.error(`Canvas drawImage error for ${cacheKey}:`, e); cleanup(); resolve(DEFAULT_THUMBNAIL); }
+                        if (dataUrl.length < 200) {
+                            console.warn(`Generated thumbnail is too small for ${cacheKey}. Likely blank.`);
+                            cleanup();
+                            resolve(DEFAULT_THUMBNAIL);
+                        } else {
+                            thumbnailCache[cacheKey] = {
+                                data: dataUrl,
+                                timestamp: Date.now()
+                            };
+                            try {
+                                localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+                            } catch (e) {
+                                console.error("Error saving thumbnail to localStorage:", e);
+                            }
+                            cleanup();
+                            resolve(dataUrl);
+                        }
+                    } catch (e) {
+                        console.error(`Canvas drawImage error for ${cacheKey}:`, e);
+                        cleanup();
+                        resolve(DEFAULT_THUMBNAIL);
+                    }
                 });
             };
-            const onError = (e) => { console.error(`Video element error for ${cacheKey}:`, video.error || e); cleanup(); resolve(DEFAULT_THUMBNAIL); };
+            const onError = (e) => {
+                console.error(`Video element error for ${cacheKey}:`, video.error || e);
+                cleanup();
+                resolve(DEFAULT_THUMBNAIL);
+            };
 
-            video.addEventListener('loadeddata', onLoadedData); video.addEventListener('seeked', onSeeked); video.addEventListener('error', onError);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cleanedUp) video.play().catch(e => { /* Autoplay often prevented */ }); });
-            hls.on(Hls.Events.ERROR, (event, data) => { console.error(`HLS.js error for ${cacheKey}: Type: ${data.type}, Details: ${data.details}`, data); if (data.fatal || data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) { if (!cleanedUp) { cleanup(); resolve(DEFAULT_THUMBNAIL); } } });
-            try { hls.loadSource(m3u8Url); hls.attachMedia(video); } catch (e) { console.error(`Error setting up HLS for ${cacheKey}: `, e); cleanup(); resolve(DEFAULT_THUMBNAIL); }
+            video.addEventListener('loadeddata', onLoadedData);
+            video.addEventListener('seeked', onSeeked);
+            video.addEventListener('error', onError);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (!cleanedUp) video.play().catch(e => {
+                    /* Autoplay often prevented */ });
+            });
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                console.error(`HLS.js error for ${cacheKey}: Type: ${data.type}, Details: ${data.details}`, data);
+                if (data.fatal || data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    if (!cleanedUp) {
+                        cleanup();
+                        resolve(DEFAULT_THUMBNAIL);
+                    }
+                }
+            });
+            try {
+                hls.loadSource(m3u8Url);
+                hls.attachMedia(video);
+            } catch (e) {
+                console.error(`Error setting up HLS for ${cacheKey}: `, e);
+                cleanup();
+                resolve(DEFAULT_THUMBNAIL);
+            }
         });
     }
 
@@ -356,58 +469,168 @@
         const id = `lcspo${num.toString().padStart(2, '0')}`;
         const cached = liveStatusCache[id];
         if (isCacheValid(cached)) {
-            if (cached.data && thumbnailCache[id] && !isCacheValid(thumbnailCache[id])) { cached.data.image = await generateHlsThumbnail(cached.data.m3u8Url, id); }
-            else if (cached.data && !cached.data.image && thumbnailCache[id] && isCacheValid(thumbnailCache[id])) { cached.data.image = thumbnailCache[id].data; }
+            if (cached.data && thumbnailCache[id] && !isCacheValid(thumbnailCache[id])) {
+                cached.data.image = await generateHlsThumbnail(cached.data.m3u8Url, id);
+            } else if (cached.data && !cached.data.image && thumbnailCache[id] && isCacheValid(thumbnailCache[id])) {
+                cached.data.image = thumbnailCache[id].data;
+            }
             return cached.data;
         }
         const pNum = num.toString().padStart(2, '0');
         const m3u8Url = `https://ch${pNum}-nlivecdn.spotvnow.co.kr/ch${pNum}/decr/medialist_14173921312004482655_hls.m3u8`;
         try {
             const thumb = await generateHlsThumbnail(m3u8Url, id);
-            if (thumb === DEFAULT_THUMBNAIL) { console.log(`Spotvnow Ch ${pNum} got default thumbnail. Offline or stream issue.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return null; }
-            const data = { title: `Spotvnow Channel ${num}`, from: 'spotvnow', image: thumb, streamer: `Spotvnow ch${pNum}`, viewers: 'N/A', url: m3u8Url, id: id, m3u8Url: m3u8Url };
-            liveStatusCache[id] = { data: data, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return data;
-        } catch (err) { console.log(`Fetch/Thumbnail fail for Spotvnow Ch ${pNum}: ${err.message}. Offline.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); delete thumbnailCache[id]; localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); return null; }
+            if (thumb === DEFAULT_THUMBNAIL) {
+                console.log(`Spotvnow Ch ${pNum} got default thumbnail. Offline or stream issue.`);
+                liveStatusCache[id] = {
+                    data: null,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return null;
+            }
+            const data = {
+                title: `Spotvnow Channel ${num}`,
+                from: 'spotvnow',
+                image: thumb,
+                streamer: `Spotvnow ch${pNum}`,
+                viewers: 'N/A',
+                url: m3u8Url,
+                id: id,
+                m3u8Url: m3u8Url
+            };
+            liveStatusCache[id] = {
+                data: data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            return data;
+        } catch (err) {
+            console.log(`Fetch/Thumbnail fail for Spotvnow Ch ${pNum}: ${err.message}. Offline.`);
+            liveStatusCache[id] = {
+                data: null,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            delete thumbnailCache[id];
+            localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+            return null;
+        }
     }
 
     async function fetchCoupangPlayLive(m3u8Url, index) {
         const id = `${COUPANG_ID_PREFIX}${index.toString().padStart(2, '0')}`;
         const cached = liveStatusCache[id];
         if (isCacheValid(cached)) {
-            if (cached.data && thumbnailCache[id] && !isCacheValid(thumbnailCache[id])) { cached.data.image = await generateHlsThumbnail(cached.data.m3u8Url, id); }
-            else if (cached.data && !cached.data.image && thumbnailCache[id] && isCacheValid(thumbnailCache[id])) { cached.data.image = thumbnailCache[id].data; }
+            if (cached.data && thumbnailCache[id] && !isCacheValid(thumbnailCache[id])) {
+                cached.data.image = await generateHlsThumbnail(cached.data.m3u8Url, id);
+            } else if (cached.data && !cached.data.image && thumbnailCache[id] && isCacheValid(thumbnailCache[id])) {
+                cached.data.image = thumbnailCache[id].data;
+            }
             return cached.data;
         }
         try {
             const thumb = await generateHlsThumbnail(m3u8Url, id);
-            if (thumb === DEFAULT_THUMBNAIL) { console.log(`Coupang Play URL ${index} (${m3u8Url.substring(m3u8Url.length - 20)}) got default thumbnail. Offline/issue.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return null; }
-            const data = { title: `쿠팡플레이 채널 ${index + 1}`, from: 'coupangplay', image: thumb, streamer: `쿠팡플레이`, viewers: 'N/A', url: m3u8Url, id: id, m3u8Url: m3u8Url };
-            liveStatusCache[id] = { data: data, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); return data;
-        } catch (err) { console.log(`Fetch/Thumbnail fail for Coupang Play URL ${index} (${m3u8Url.substring(m3u8Url.length - 20)}): ${err.message}. Offline.`); liveStatusCache[id] = { data: null, timestamp: Date.now() }; localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); delete thumbnailCache[id]; localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); return null; }
+            if (thumb === DEFAULT_THUMBNAIL) {
+                console.log(`Coupang Play URL ${index} (${m3u8Url.substring(m3u8Url.length - 20)}) got default thumbnail. Offline/issue.`);
+                liveStatusCache[id] = {
+                    data: null,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+                return null;
+            }
+            const data = {
+                title: `쿠팡플레이 채널 ${index + 1}`,
+                from: 'coupangplay',
+                image: thumb,
+                streamer: `쿠팡플레이`,
+                viewers: 'N/A',
+                url: m3u8Url,
+                id: id,
+                m3u8Url: m3u8Url
+            };
+            liveStatusCache[id] = {
+                data: data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            return data;
+        } catch (err) {
+            console.log(`Fetch/Thumbnail fail for Coupang Play URL ${index} (${m3u8Url.substring(m3u8Url.length - 20)}): ${err.message}. Offline.`);
+            liveStatusCache[id] = {
+                data: null,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+            delete thumbnailCache[id];
+            localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+            return null;
+        }
     }
 
     let loadingInterval = null;
     async function updateLiveStreamList() {
-        list.style.display = 'block'; closeButton.style.display = 'block'; refreshButton.style.display = 'flex';
+        list.style.display = 'block';
+        closeButton.style.display = 'block';
+        refreshButton.style.display = 'flex';
         list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888e99;">로딩 중<span id="loadingDots">.</span></div>';
         loadingInterval && clearInterval(loadingInterval);
-        const dotsSpan = list.querySelector('#loadingDots'); let dotCount = 1;
-        if (dotsSpan) { loadingInterval = setInterval(() => { dotCount = (dotCount % 3) + 1; dotsSpan.textContent = '.'.repeat(dotCount); }, 500); }
+        const dotsSpan = list.querySelector('#loadingDots');
+        let dotCount = 1;
+        if (dotsSpan) {
+            loadingInterval = setInterval(() => {
+                dotCount = (dotCount % 3) + 1;
+                dotsSpan.textContent = '.'.repeat(dotCount);
+            }, 500);
+        }
 
-        const spotvnowChannelNumbers = Array.from({ length: 40 }, (_, i) => i + 1);
-        const spotvnowFetchPromises = spotvnowChannelNumbers.map(num => fetchSpotvnowLive(num).catch(err => { console.error(`Unhandled Spotvnow CH${num}:`, err); return null; }));
-        const coupangPlayFetchPromises = coupangPlayUrls.map((url, index) => fetchCoupangPlayLive(url, index).catch(err => { console.error(`Unhandled Coupang URL ${index}:`, err); return null; }));
+        const spotvnowChannelNumbers = Array.from({
+            length: 40
+        }, (_, i) => i + 1);
+        const spotvnowFetchPromises = spotvnowChannelNumbers.map(num => fetchSpotvnowLive(num).catch(err => {
+            console.error(`Unhandled Spotvnow CH${num}:`, err);
+            return null;
+        }));
+        const coupangPlayFetchPromises = coupangPlayUrls.map((url, index) => fetchCoupangPlayLive(url, index).catch(err => {
+            console.error(`Unhandled Coupang URL ${index}:`, err);
+            return null;
+        }));
 
         const allFetchPromises = [...spotvnowFetchPromises, ...coupangPlayFetchPromises];
         const results = await Promise.allSettled(allFetchPromises);
-        loadingInterval && clearInterval(loadingInterval); loadingInterval = null;
+        loadingInterval && clearInterval(loadingInterval);
+        loadingInterval = null;
         const liveStreams = results.filter(r => r.status === 'fulfilled' && r.value !== null).map(r => r.value);
         updateStreamListDOM(liveStreams);
     }
 
-    spotvnowButton.addEventListener('click', () => { if (list.style.display === 'block') { closeButton.click(); } else { updateLiveStreamList(); } });
-    refreshButton.addEventListener('click', () => { Object.keys(liveStatusCache).forEach(key => { if(liveStatusCache[key]) liveStatusCache[key].timestamp = 0; }); Object.keys(thumbnailCache).forEach(key => { if(thumbnailCache[key]) thumbnailCache[key].timestamp = 0; }); localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); console.log("Cache timestamps reset, refreshing list..."); updateLiveStreamList(); });
-    closeButton.addEventListener('click', () => { list.style.display = 'none'; closeButton.style.display = 'none'; refreshButton.style.display = 'none'; loadingInterval && clearInterval(loadingInterval); loadingInterval = null; });
+    spotvnowButton.addEventListener('click', () => {
+        if (list.style.display === 'block') {
+            closeButton.click();
+        } else {
+            updateLiveStreamList();
+        }
+    });
+    refreshButton.addEventListener('click', () => {
+        Object.keys(liveStatusCache).forEach(key => {
+            if (liveStatusCache[key]) liveStatusCache[key].timestamp = 0;
+        });
+        Object.keys(thumbnailCache).forEach(key => {
+            if (thumbnailCache[key]) thumbnailCache[key].timestamp = 0;
+        });
+        localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+        localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+        console.log("Cache timestamps reset, refreshing list...");
+        updateLiveStreamList();
+    });
+    closeButton.addEventListener('click', () => {
+        list.style.display = 'none';
+        closeButton.style.display = 'none';
+        refreshButton.style.display = 'none';
+        loadingInterval && clearInterval(loadingInterval);
+        loadingInterval = null;
+    });
 
     console.log("Custom Spotvnow & CoupangPlay List script initialized (Coupang Sidebar Click Mode).");
 
@@ -417,47 +640,57 @@
         const initialPanelLeftPx = parseInt(computedPanelStyle.left, 10) || 190;
 
         const adjustPanelPosition = () => {
-            requestAnimationFrame(() => { // Keep using requestAnimationFrame for smooth updates
+            const panelWidth = panel.offsetWidth;
+            requestAnimationFrame(() => {
                 if (sidebar.classList.contains('is-collapsed')) {
-                    // --- MODIFICATION START ---
-                    // Sidebar is collapsed: Hide the panel
-                    panel.style.display = 'none';
-                    // We don't strictly need to set 'left' when it's hidden, but it doesn't hurt
-                    // panel.style.left = `10px`; // Or remove this line if preferred
-                    // --- MODIFICATION END ---
+
+                    panel.style.left = `-${panelWidth + 20}px`;
                 } else {
-                    // --- MODIFICATION START ---
-                    // Sidebar is expanded: Show the panel and set its position
-                    panel.style.display = 'flex'; // Use 'flex' as it's the default display in your CSS
+
                     panel.style.left = `${initialPanelLeftPx}px`;
-                    // --- MODIFICATION END ---
                 }
             });
         };
 
-        // Call it once initially to set the correct state on load
         adjustPanelPosition();
 
         const observer = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    adjustPanelPosition(); // Call the updated function
-                    break; // No need to check other mutations if class changed
+                    adjustPanelPosition(); 
+                    break; 
                 }
             }
         });
 
-        // Observe the sidebar for class attribute changes
-        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+        observer.observe(sidebar, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
 
     } else {
-        // Keep error logging
         if (!panel) console.error("Custom panel element (#customPlayerPanel) not found.");
         if (!sidebar) console.error("Sidebar element (#sidebar) not found.");
     }
 
-    const now = Date.now(); let changed = false; const veryOldThreshold = CACHE_EXPIRY * 5;
-    Object.keys(liveStatusCache).forEach(key => { if (!liveStatusCache[key] || now - (liveStatusCache[key].timestamp || 0) >= veryOldThreshold) { delete liveStatusCache[key]; changed = true; } });
-    Object.keys(thumbnailCache).forEach(key => { if (!thumbnailCache[key] || now - (thumbnailCache[key].timestamp || 0) >= veryOldThreshold) { delete thumbnailCache[key]; changed = true; } });
-    if (changed) { localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache)); localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache)); console.log("Cleaned up very old cache entries."); }
+    const now = Date.now();
+    let changed = false;
+    const veryOldThreshold = CACHE_EXPIRY * 5;
+    Object.keys(liveStatusCache).forEach(key => {
+        if (!liveStatusCache[key] || now - (liveStatusCache[key].timestamp || 0) >= veryOldThreshold) {
+            delete liveStatusCache[key];
+            changed = true;
+        }
+    });
+    Object.keys(thumbnailCache).forEach(key => {
+        if (!thumbnailCache[key] || now - (thumbnailCache[key].timestamp || 0) >= veryOldThreshold) {
+            delete thumbnailCache[key];
+            changed = true;
+        }
+    });
+    if (changed) {
+        localStorage.setItem('liveStatusCache', JSON.stringify(liveStatusCache));
+        localStorage.setItem('thumbnailCache', JSON.stringify(thumbnailCache));
+        console.log("Cleaned up very old cache entries.");
+    }
 })();
