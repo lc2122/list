@@ -97,10 +97,10 @@
     const COUPANG_ID_PREFIX = 'lccp'; // Coupang ID Prefix
 
     const coupangPlayUrls = [
-     "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/576b33b6685c4c8aa054f69aef24ed62/index.m3u8",
+      "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/576b33b6685c4c8aa054f69aef24ed62/index.m3u8",
       "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/ca6eb1f963d64a04b99b27f07091897e/index.m3u8",
       "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/5734898c225c4fc7a12d40fcea24879d/index.m3u8",
-      "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/8b474ac1a7004b9e906ed2efc73ec23d/index.m3u8",
+      "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/fcf9c6a5f7554769a8efc327a545aeb1/index.m3u8",
       "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/8ab14ad8f0ce4c1782a9cb9b15c388b4/index.m3u8",
       "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/0df6c0312da849a494eac7e46e587100/index.m3u8",
       "https://live04.coupangstreaming.com/v1/master/d226efdd6829df54ce3eb8bbdfe3981f7fc650b4/play_live04/out/v1/c78b1450ad33472c920ea3c756993fb6/index.m3u8",
